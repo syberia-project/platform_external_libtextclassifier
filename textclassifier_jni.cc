@@ -37,7 +37,7 @@ Java_android_view_textclassifier_SmartSelection_nativeSuggest(
     JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
     jint selection_end);
 
-JNIEXPORT jstring JNICALL
+JNIEXPORT jobjectArray JNICALL
 Java_android_view_textclassifier_SmartSelection_nativeClassifyText(
     JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
     jint selection_end);
@@ -51,11 +51,11 @@ Java_android_view_textclassifier_SmartSelection_nativeClose(JNIEnv* env,
 JNIEXPORT jlong JNICALL Java_android_view_textclassifier_LangId_nativeNew(
     JNIEnv* env, jobject thiz, jint fd);
 
-JNIEXPORT jstring JNICALL
-Java_android_view_textclassifier_LangId_nativeFindLanguage(JNIEnv* env,
-                                                           jobject thiz,
-                                                           jlong ptr,
-                                                           jstring text);
+JNIEXPORT jobjectArray JNICALL
+Java_android_view_textclassifier_LangId_nativeFindLanguages(JNIEnv* env,
+                                                            jobject thiz,
+                                                            jlong ptr,
+                                                            jstring text);
 
 JNIEXPORT void JNICALL Java_android_view_textclassifier_LangId_nativeClose(
     JNIEnv* env, jobject thiz, jlong ptr);
@@ -74,6 +74,29 @@ std::string ToStlString(JNIEnv* env, jstring str) {
   const std::string s = bytes;
   env->ReleaseStringUTFChars(str, bytes);
   return s;
+}
+
+jobjectArray ScoredStringsToJObjectArray(
+    JNIEnv* env, const std::string& result_class_name,
+    const std::vector<std::pair<std::string, float>>& classification_result) {
+  jclass result_class = env->FindClass(result_class_name.c_str());
+  jmethodID result_class_constructor =
+      env->GetMethodID(result_class, "<init>", "(Ljava/lang/String;F)V");
+
+  jobjectArray results =
+      env->NewObjectArray(classification_result.size(), result_class, nullptr);
+
+  for (int i = 0; i < classification_result.size(); i++) {
+    jstring row_string =
+        env->NewStringUTF(classification_result[i].first.c_str());
+    jobject result =
+        env->NewObject(result_class, result_class_constructor, row_string,
+                       static_cast<jfloat>(classification_result[i].second));
+    env->SetObjectArrayElement(results, i, result);
+    env->DeleteLocalRef(result);
+  }
+  env->DeleteLocalRef(result_class);
+  return results;
 }
 
 }  // namespace
@@ -102,15 +125,19 @@ Java_android_view_textclassifier_SmartSelection_nativeSuggest(
   return result;
 }
 
-JNIEXPORT jstring JNICALL
+JNIEXPORT jobjectArray JNICALL
 Java_android_view_textclassifier_SmartSelection_nativeClassifyText(
     JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
     jint selection_end) {
-  TextClassificationModel* model =
+  TextClassificationModel* ff_model =
       reinterpret_cast<TextClassificationModel*>(ptr);
-  const std::string classification = model->ClassifyText(
-      ToStlString(env, context), {selection_begin, selection_end});
-  return env->NewStringUTF(classification.c_str());
+  const std::vector<std::pair<std::string, float>> classification_result =
+      ff_model->ClassifyText(ToStlString(env, context),
+                             {selection_begin, selection_end});
+
+  return ScoredStringsToJObjectArray(
+      env, "android/view/textclassifier/SmartSelection$ClassificationResult",
+      classification_result);
 }
 
 JNIEXPORT void JNICALL
@@ -127,16 +154,18 @@ JNIEXPORT jlong JNICALL Java_android_view_textclassifier_LangId_nativeNew(
   return reinterpret_cast<jlong>(new LangId(fd));
 }
 
-JNIEXPORT jstring JNICALL
-Java_android_view_textclassifier_LangId_nativeFindLanguage(JNIEnv* env,
-                                                           jobject thiz,
-                                                           jlong ptr,
-                                                           jstring text) {
+JNIEXPORT jobjectArray JNICALL
+Java_android_view_textclassifier_LangId_nativeFindLanguages(JNIEnv* env,
+                                                            jobject thiz,
+                                                            jlong ptr,
+                                                            jstring text) {
   LangId* lang_id = reinterpret_cast<LangId*>(ptr);
-  const std::string detected_language =
-      lang_id->FindLanguage(ToStlString(env, text));
-  jstring result = env->NewStringUTF(detected_language.c_str());
-  return result;
+  const std::vector<std::pair<std::string, float>> scored_languages =
+      lang_id->FindLanguages(ToStlString(env, text));
+
+  return ScoredStringsToJObjectArray(
+      env, "android/view/textclassifier/LangId$ClassificationResult",
+      scored_languages);
 }
 
 JNIEXPORT void JNICALL Java_android_view_textclassifier_LangId_nativeClose(

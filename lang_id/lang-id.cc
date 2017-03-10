@@ -27,8 +27,8 @@
 #include "common/algorithm.h"
 #include "common/dictionary.pb.h"
 #include "common/embedding-network-params-from-proto.h"
-#include "common/embedding-network.pb.h"
 #include "common/embedding-network.h"
+#include "common/embedding-network.pb.h"
 #include "common/feature-extractor.h"
 #include "common/file-utils.h"
 #include "common/list-of-strings.pb.h"
@@ -120,13 +120,37 @@ class LangIdImpl {
     probability_threshold_ = threshold;
   }
 
-  void SetDefaultLanguage(const std::string &lang) {
-    default_language_ = lang;
-  }
+  void SetDefaultLanguage(const std::string &lang) { default_language_ = lang; }
 
   std::string FindLanguage(const std::string &text) const {
-    if (!is_valid()) {
+    std::vector<float> scores = ScoreLanguages(text);
+    if (scores.empty()) {
       return default_language_;
+    }
+
+    // Softmax label with max score.
+    int label = GetArgMax(scores);
+    float probability = scores[label];
+    if (probability < probability_threshold_) {
+      return default_language_;
+    }
+    return GetLanguageForSoftmaxLabel(label);
+  }
+
+  std::vector<std::pair<std::string, float>> FindLanguages(
+      const std::string &text) const {
+    std::vector<float> scores = ScoreLanguages(text);
+
+    std::vector<std::pair<std::string, float>> result;
+    for (int i = 0; i < scores.size(); i++) {
+      result.push_back({GetLanguageForSoftmaxLabel(i), scores[i]});
+    }
+    return result;
+  }
+
+  std::vector<float> ScoreLanguages(const std::string &text) const {
+    if (!is_valid()) {
+      return {};
     }
 
     // Create a Sentence storing the input text.
@@ -142,13 +166,7 @@ class LangIdImpl {
     EmbeddingNetwork::Vector scores;
     network_->ComputeFinalScores(features, &scores);
 
-    // Softmax label with max score.
-    int label = GetArgMax(scores);
-    float probability = ComputeSoftmaxProbability(scores, label);
-    if (probability < probability_threshold_) {
-      return default_language_;
-    }
-    return GetLanguageForSoftmaxLabel(label);
+    return ComputeSoftmax(scores);
   }
 
   bool is_valid() const { return valid_; }
@@ -239,8 +257,8 @@ class LangIdImpl {
     if ((label >= 0) && (label < languages_.name_size())) {
       return languages_.name(label);
     } else {
-      TC_LOG(ERROR) << "Softmax label " << label
-                 << " outside range [0, " << languages_.name_size() << ")";
+      TC_LOG(ERROR) << "Softmax label " << label << " outside range [0, "
+                    << languages_.name_size() << ")";
       return default_language_;
     }
   }
@@ -270,23 +288,21 @@ class LangIdImpl {
   TC_DISALLOW_COPY_AND_ASSIGN(LangIdImpl);
 };
 
-LangId::LangId(const std::string &filename)
-    : pimpl_(new LangIdImpl(filename)) {
+LangId::LangId(const std::string &filename) : pimpl_(new LangIdImpl(filename)) {
   if (!pimpl_->is_valid()) {
-    TC_LOG(ERROR)
-        << "Unable to construct a valid LangId based "
-        << "on the data from " << filename << "; nothing should crash, but "
-        << "accuracy will be bad.";
+    TC_LOG(ERROR) << "Unable to construct a valid LangId based "
+                  << "on the data from " << filename
+                  << "; nothing should crash, but "
+                  << "accuracy will be bad.";
   }
 }
 
-LangId::LangId(int fd)
-    : pimpl_(new LangIdImpl(fd)) {
+LangId::LangId(int fd) : pimpl_(new LangIdImpl(fd)) {
   if (!pimpl_->is_valid()) {
-    TC_LOG(ERROR)
-        << "Unable to construct a valid LangId based "
-        << "on the data from descriptor " << fd << "; nothing should crash, "
-        << "but accuracy will be bad.";
+    TC_LOG(ERROR) << "Unable to construct a valid LangId based "
+                  << "on the data from descriptor " << fd
+                  << "; nothing should crash, "
+                  << "but accuracy will be bad.";
   }
 }
 
@@ -304,9 +320,12 @@ std::string LangId::FindLanguage(const std::string &text) const {
   return pimpl_->FindLanguage(text);
 }
 
-bool LangId::is_valid() const {
-  return pimpl_->is_valid();
+std::vector<std::pair<std::string, float>> LangId::FindLanguages(
+    const std::string &text) const {
+  return pimpl_->FindLanguages(text);
 }
+
+bool LangId::is_valid() const { return pimpl_->is_valid(); }
 
 }  // namespace lang_id
 }  // namespace nlp_core

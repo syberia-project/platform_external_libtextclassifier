@@ -401,40 +401,38 @@ CodepointSpan TextClassificationModel::SuggestSelection(
   return SuggestSelection(selection_with_context.context, click_indices);
 }
 
-std::string TextClassificationModel::ClassifyText(
-    const std::string& context, CodepointSpan selection_indices) const {
+std::vector<std::pair<std::string, float>>
+TextClassificationModel::ClassifyText(const std::string& context,
+                                      CodepointSpan selection_indices) const {
   if (!initialized_) {
     TC_LOG(ERROR) << "Not initialized";
-    return sharing_feature_processor_->GetDefaultCollection();
+    return {};
   }
 
   // Invalid click indices make the feature extraction select the middle word in
   // the selection span.
   const CodepointSpan click_indices({kInvalidIndex, kInvalidIndex});
 
-  EmbeddingNetwork::Vector scores =
-      InferInternal(context, click_indices, selection_indices,
-                    *sharing_feature_processor_, sharing_network_.get(),
-                    /*selection_label_spans=*/nullptr,
-                    /*selection_label=*/nullptr,
-                    /*selection_codepoint_label=*/nullptr,
-                    /*classification_label=*/nullptr);
+  EmbeddingNetwork::Vector scores = InferInternal(
+      context, click_indices, selection_indices, *sharing_feature_processor_,
+      sharing_network_.get(), nullptr, nullptr, nullptr, nullptr);
   if (scores.empty()) {
     TC_LOG(ERROR) << "Using default class";
-    return sharing_feature_processor_->GetDefaultCollection();
+    return {};
   }
   if (!scores.empty() &&
       scores.size() == sharing_feature_processor_->NumCollections()) {
-    const int prediction =
-        std::max_element(scores.begin(), scores.end()) - scores.begin();
+    scores = nlp_core::ComputeSoftmax(scores);
 
-    // Convert to a class name.
-    const std::string class_name =
-        sharing_feature_processor_->LabelToCollection(prediction);
-    return class_name;
+    std::vector<std::pair<std::string, float>> result;
+    for (int i = 0; i < scores.size(); i++) {
+      result.push_back(
+          {sharing_feature_processor_->LabelToCollection(i), scores[i]});
+    }
+    return result;
   } else {
     TC_LOG(ERROR) << "Using default class: scores.size() = " << scores.size();
-    return sharing_feature_processor_->GetDefaultCollection();
+    return {};
   }
 }
 

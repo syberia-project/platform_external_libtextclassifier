@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "util/base/macros.h"
 
@@ -76,12 +77,20 @@ class LangId {
   // std::string.
   std::string FindLanguage(const std::string &text) const;
 
+  // Returns a vector of language codes along with the probability for each
+  // language.
+  std::vector<std::pair<std::string, float>> FindLanguages(
+      const std::string &text) const;
+
   // Returns true if this object has been correctly initialized and is ready to
   // perform predictions.  For more info, see doc for LangId
   // constructor above.
   bool is_valid() const;
 
  private:
+  // Returns a vector of probabilities of languages of the text.
+  std::vector<float> ScoreLanguages(const std::string &text) const;
+
   // Pimpl ("pointer to implementation") pattern, to hide all internals from our
   // clients.
   std::unique_ptr<LangIdImpl> pimpl_;

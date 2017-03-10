@@ -118,9 +118,9 @@ class TextClassificationModel {
 
   // Classifies the selected text given the context string.
   // Requires that the model is a smart sharing model.
-  // Returns a default collection name if an error occurs.
-  std::string ClassifyText(const std::string& context,
-                           CodepointSpan click_indices) const;
+  // Returns an empty result if an error occurs.
+  std::vector<std::pair<std::string, float>> ClassifyText(
+      const std::string& context, CodepointSpan click_indices) const;
 
  protected:
   // Removes punctuation from the beginning and end of the selection and returns
@@ -168,4 +168,4 @@ class TextClassificationModel {
 
 }  // namespace libtextclassifier
 
-#endif  // LIBTEXTCLASSIFIER_TEXT_CLASSIFICATION_MODEL_H_
+#endif  // LIBTEXTCLASSIFIER_SMARTSELECT_TEXT_CLASSIFICATION_MODEL_H_
