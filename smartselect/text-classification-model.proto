@@ -1,0 +1,108 @@
+// Copyright (C) 2017 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Text classification model configuration.
+
+syntax = "proto2";
+option optimize_for = LITE_RUNTIME;
+
+import "external/libtextclassifier/common/embedding-network.proto";
+import "external/libtextclassifier/smartselect/tokenizer.proto";
+
+package libtextclassifier;
+
+message SelectionModelOptions {
+  // A list of Unicode codepoints to strip from predicted selections.
+  repeated int32 punctuation_to_strip = 1;
+
+  // Whether to strip punctuation after the selection is made.
+  optional bool strip_punctuation = 2;
+
+  // Enforce symmetrical selections.
+  optional bool enforce_symmetry = 3;
+
+  // Number of inferences made around the click position (to one side), for
+  // enforcing symmetry.
+  optional int32 symmetry_context_size = 4;
+}
+
+message FeatureProcessorOptions {
+  // Number of buckets used for hashing charactergrams.
+  optional int32 num_buckets = 1 [default = -1];
+
+  // Context size defines the number of words to the left and to the right of
+  // the selected word to be used as context. For example, if context size is
+  // N, then we take N words to the left and N words to the right of the
+  // selected word as its context.
+  optional int32 context_size = 2 [default = -1];
+
+  // Maximum number of words of the context to select in total.
+  optional int32 max_selection_span = 3 [default = -1];
+
+  // Orders of charactergrams to extract. E.g., 2 means character bigrams, 3
+  // character trigrams etc.
+  repeated int32 chargram_orders = 4;
+
+  // Whether to extract the token case feature.
+  optional bool extract_case_feature = 5 [default = false];
+
+  // Whether to extract the selection mask feature.
+  optional bool extract_selection_mask_feature = 6 [default = false];
+
+  // If true, tokenize on space, otherwise tokenize using ICU.
+  optional bool tokenize_on_space = 7 [default = true];
+
+  // If true, the selection classifier output will contain only the selections
+  // that are feasible (e.g., those that are shorter than max_selection_span),
+  // if false, the output will be a complete cross-product of possible
+  // selections to the left and posible selections to the right, including the
+  // infeasible ones.
+  // NOTE: Exists mainly for compatibility with older models that were trained
+  // with the non-reduced output space.
+  optional bool selection_reduced_output_space = 8 [default = true];
+
+  // Collection names.
+  repeated string collections = 9;
+
+  // An index of collection in collections to be used if a collection name can't
+  // be mapped to an id.
+  optional int32 default_collection = 10 [default = -1];
+
+  // Probability with which to drop context of examples.
+  optional float context_dropout_probability = 11 [default = 0.0];
+
+  // If true, drop variable amounts of context, if false all context, with
+  // probability given by context_dropout_ratio.
+  optional bool use_variable_context_dropout = 12 [default = false];
+
+  // If true, will split the input by lines, and only use the line that contains
+  // the clicked token.
+  optional bool only_use_line_with_click = 13 [default = false];
+
+  // If true, will split tokens that contain the selection boundary, at the
+  // position of the boundary.
+  // E.g. "foo{bar}@google.com" -> "foo", "bar", "@google.com"
+  optional bool split_tokens_on_selection_boundaries = 14 [default = false];
+
+  // Codepoint ranges that determine how different codepoints are tokenized.
+  // The ranges must not overlap.
+  repeated TokenizationCodepointRange tokenization_codepoint_config = 15;
+};
+
+extend nlp_core.EmbeddingNetworkProto {
+  optional FeatureProcessorOptions
+      feature_processor_options_in_embedding_network_proto = 146230910;
+  optional SelectionModelOptions
+      selection_model_options_in_embedding_network_proto = 148190899;
+}
