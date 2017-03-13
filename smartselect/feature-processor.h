@@ -179,6 +179,12 @@ class FeatureProcessor {
   // Converts a token span to the corresponding label.
   int TokenSpanToLabel(const std::pair<TokenIndex, TokenIndex>& span) const;
 
+  // Find tokens that are part of the selection.
+  // NOTE: Will select all tokens that somehow overlap with the selection.
+  std::vector<Token> FindTokensInSelection(
+      const std::vector<Token>& selectable_tokens,
+      const SelectionWithContext& selection_with_context) const;
+
  private:
   FeatureProcessorOptions options_;
 

@@ -25,10 +25,9 @@
 #include <vector>
 
 #include "common/algorithm.h"
-#include "common/dictionary.pb.h"
 #include "common/embedding-network-params-from-proto.h"
-#include "common/embedding-network.h"
 #include "common/embedding-network.pb.h"
+#include "common/embedding-network.h"
 #include "common/feature-extractor.h"
 #include "common/file-utils.h"
 #include "common/list-of-strings.pb.h"
@@ -99,7 +98,7 @@ class LangIdImpl {
     if (!ParseNetworkParams(model_data, &context)) {
       return;
     }
-    if (!ParseLanguageDictionary(model_data, &context)) {
+    if (!ParseListOfKnownLanguages(model_data, &context)) {
       return;
     }
 
@@ -215,12 +214,25 @@ class LangIdImpl {
 
   // Parses dictionary with known languages (i.e., field languages_) from a
   // TaskInput of context.  Note: that TaskInput should be a ListOfStrings proto
-  // with a single element, the serialized form of a DictionaryProto.  In the
-  // original model trained by our workflow, it was a recordio file with a
-  // single record (the serialized dictionary), and that got converted into a
-  // ListOfStrings, see http://cr/141464533
-  bool ParseLanguageDictionary(const InMemoryModelData &model_data,
-                               TaskContext *context) {
+  // with a single element, the serialized form of a ListOfStrings.
+  //
+  // TC_STRIP
+  //
+  // Indeed, we have two nested ListOfStrings.  Here's why:
+  //
+  // The first (outermost) ListOfStrings: in the original model trained by our
+  // workflow (on server side), we had a recordio file with a single record (the
+  // serialized dictionary); we don't have simple code to read recordio on
+  // mobile; instead, we convert a recordio file into a list of strings, one
+  // string for each record.
+  //
+  // The inner ListOfStrings: our server-side code uses a specialized proto
+  // (DictionaryProto).  That has the same wire-format as ListOfStrings: to save
+  // code size on mobile, we reuse ListOfStrings.
+  //
+  // TC_END_STRIP
+  bool ParseListOfKnownLanguages(const InMemoryModelData &model_data,
+                                 TaskContext *context) {
     const std::string input_name = "language-name-id-map";
     const std::string input_file_name =
         GetInMemoryFileNameForTaskInput(input_name, context);
@@ -245,7 +257,7 @@ class LangIdImpl {
       return false;
     }
     if (!ParseProtoFromMemory(std::string(records.element(0)), &languages_)) {
-      TC_LOG(ERROR) << "Unable to parse DictionaryProto with known languages";
+      TC_LOG(ERROR) << "Unable to parse dictionary with known languages";
       return false;
     }
     return true;
@@ -254,11 +266,11 @@ class LangIdImpl {
   // Returns language code for a softmax label.  See comments for languages_
   // field.  If label is out of range, returns default_language_.
   std::string GetLanguageForSoftmaxLabel(int label) const {
-    if ((label >= 0) && (label < languages_.name_size())) {
-      return languages_.name(label);
+    if ((label >= 0) && (label < languages_.element_size())) {
+      return languages_.element(label);
     } else {
       TC_LOG(ERROR) << "Softmax label " << label << " outside range [0, "
-                    << languages_.name_size() << ")";
+                    << languages_.element_size() << ")";
       return default_language_;
     }
   }
@@ -278,9 +290,9 @@ class LangIdImpl {
   // reported.  Otherwise, we report default_language_.
   float probability_threshold_ = kDefaultProbabilityThreshold;
 
-  // Recognized languages: softmax label i means languages_.name(i) (something
-  // like "en", "fr", "ru", etc).
-  DictionaryProto languages_;
+  // Known languages: softmax label i (an integer) means languages_.element(i)
+  // (something like "en", "fr", "ru", etc).
+  ListOfStrings languages_;
 
   // Language code to return in case of errors.
   std::string default_language_ = kInitialDefaultLanguage;

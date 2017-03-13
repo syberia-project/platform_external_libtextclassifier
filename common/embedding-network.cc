@@ -135,10 +135,16 @@ bool EmbeddingNetwork::ConcatEmbeddings(
     const int concat_offset = concat_offset_[es_index];
 
     // Access is safe by es_index loop bounds and Invariant 3.
-    const EmbeddingMatrix &embedding_matrix = embedding_matrices_[es_index];
-    const int embedding_dim = embedding_matrix.dim();
+    const EmbeddingMatrix *embedding_matrix =
+        embedding_matrices_[es_index].get();
+    if (embedding_matrix == nullptr) {
+      // Should not happen, hence our terse log error message.
+      TC_LOG(ERROR) << es_index;
+      return false;
+    }
+    const int embedding_dim = embedding_matrix->dim();
     const bool is_quantized =
-        embedding_matrix.quant_type() != QuantizationType::NONE;
+        embedding_matrix->quant_type() != QuantizationType::NONE;
 
     // Access is safe due to es_index loop bounds.
     const FeatureVector &feature_vector = feature_vectors[es_index];
@@ -169,14 +175,14 @@ bool EmbeddingNetwork::ConcatEmbeddings(
         // Continuous features (encoded as FloatFeatureValue).
         FloatFeatureValue float_feature_value(feature_value);
         const int id = float_feature_value.id;
-        embedding_matrix.get_embedding(id, &embedding_data, &multiplier);
+        embedding_matrix->get_embedding(id, &embedding_data, &multiplier);
         multiplier *= float_feature_value.weight;
       } else {
         // Discrete features: every present feature has implicit value 1.0.
         // Hence, after we grab the multiplier below, we don't multiply it by
         // any weight.
-        embedding_matrix.get_embedding(
-            feature_value, &embedding_data, &multiplier);
+        embedding_matrix->get_embedding(feature_value, &embedding_data,
+                                        &multiplier);
       }
 
       // Weighted embeddings will be added starting from this address.
@@ -281,8 +287,8 @@ EmbeddingNetwork::EmbeddingNetwork(const EmbeddingNetworkParams *model) {
       TC_LOG(ERROR) << "Empty embedding matrix #" << i;
       return;
     }
-    embedding_matrices_.emplace_back(matrix);
-    const int embedding_dim = embedding_matrices_.back().dim();
+    embedding_matrices_.emplace_back(new EmbeddingMatrix(matrix));
+    const int embedding_dim = embedding_matrices_.back()->dim();
     offset_sum += embedding_dim * model->GetNumFeaturesInEmbeddingSpace(i);
   }
   concat_layer_size_ = offset_sum;

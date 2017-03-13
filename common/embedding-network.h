@@ -17,12 +17,14 @@
 #ifndef LIBTEXTCLASSIFIER_COMMON_EMBEDDING_NETWORK_H_
 #define LIBTEXTCLASSIFIER_COMMON_EMBEDDING_NETWORK_H_
 
+#include <memory>
 #include <vector>
 
 #include "common/embedding-network-params.h"
 #include "common/feature-extractor.h"
 #include "util/base/integral_types.h"
 #include "util/base/logging.h"
+#include "util/base/macros.h"
 
 namespace libtextclassifier {
 namespace nlp_core {
@@ -116,6 +118,8 @@ class EmbeddingNetwork {
     // Pointer to quantization scales.  nullptr if no quantization.  Otherwise,
     // quant_scales_[i] is scale for embedding of i-th vocabulary element.
     const float16 *const quant_scales_;
+
+    TC_DISALLOW_COPY_AND_ASSIGN(EmbeddingMatrix);
   };
 
   // An immutable vector that doesn't own the memory that stores the underlying
@@ -189,7 +193,7 @@ class EmbeddingNetwork {
   // Network parameters.
 
   // One weight matrix for each embedding space.
-  std::vector<EmbeddingMatrix> embedding_matrices_;
+  std::vector<std::unique_ptr<EmbeddingMatrix>> embedding_matrices_;
 
   // concat_offset_[i] is the input layer offset for i-th embedding space.
   std::vector<int> concat_offset_;

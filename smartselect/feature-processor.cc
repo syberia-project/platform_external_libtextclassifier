@@ -308,28 +308,6 @@ int FindTokenThatContainsSpan(const std::vector<Token>& selectable_tokens,
   return kInvalidIndex;
 }
 
-// Find tokens that are part of the selection.
-// NOTE: Will select all tokens that somehow overlap with the selection.
-std::vector<Token> FindTokensInSelection(
-    const std::vector<Token>& selectable_tokens,
-    const SelectionWithContext& selection_with_context) {
-  std::vector<Token> tokens_in_selection;
-  for (const Token& token : selectable_tokens) {
-    const bool selection_start_in_token =
-        token.start <= selection_with_context.selection_start &&
-        token.end > selection_with_context.selection_start;
-
-    const bool selection_end_in_token =
-        token.start < selection_with_context.selection_end &&
-        token.end >= selection_with_context.selection_end;
-
-    if (selection_start_in_token || selection_end_in_token) {
-      tokens_in_selection.push_back(token);
-    }
-  }
-  return tokens_in_selection;
-}
-
 // Helper function to get the click position (in terms of index into a vector of
 // selectable tokens), given selectable tokens. If click position is given, it
 // will be used. If it is not given, but selection is given, the click will be
@@ -380,6 +358,31 @@ int GetClickPosition(const SelectionWithContext& selection_with_context,
 }
 
 }  // namespace
+
+std::vector<Token> FeatureProcessor::FindTokensInSelection(
+    const std::vector<Token>& selectable_tokens,
+    const SelectionWithContext& selection_with_context) const {
+  std::vector<Token> tokens_in_selection;
+  for (const Token& token : selectable_tokens) {
+    const bool selection_start_in_token =
+        token.start <= selection_with_context.selection_start &&
+        token.end > selection_with_context.selection_start;
+
+    const bool token_contained_in_selection =
+        token.start >= selection_with_context.selection_start &&
+        token.end < selection_with_context.selection_end;
+
+    const bool selection_end_in_token =
+        token.start < selection_with_context.selection_end &&
+        token.end >= selection_with_context.selection_end;
+
+    if (selection_start_in_token || token_contained_in_selection ||
+        selection_end_in_token) {
+      tokens_in_selection.push_back(token);
+    }
+  }
+  return tokens_in_selection;
+}
 
 CodepointSpan FeatureProcessor::ClickRandomTokenInSelection(
     const SelectionWithContext& selection_with_context) const {

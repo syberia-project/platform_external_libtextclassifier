@@ -31,19 +31,6 @@ message MatrixParams {
   // Whether the matrix is quantized.
   optional bool is_quantized = 4 [default = false];
 
-  // TODO(salcianu): convert all clients to use bytes_for_quantized_values /
-  // _col_scales and properly deprecated quantized_value / col_scale.
-
-  // [Deprecated, use bytes_for_quantized_values instead:] Quantized matrix
-  // entries. Note that the quantization levels are usually lower than 32 bits
-  // but protos don't support those types.
-  repeated int32 quantized_value = 5;
-
-  // [Deprecated, use bytes_for_col_scales:] Scale factors for the
-  // columns. Necessary for dequantizing the values. Note that usually fewer
-  // than 32 bits are necessary but protos don't support those types.
-  repeated float col_scale = 6;
-
   // Bytes for all quantized values.  Each value (see "repeated float value"
   // field) is quantized to an uint8 (1 byte) value, and all these bytes are
   // concatenated into the string from this field.
@@ -55,6 +42,8 @@ message MatrixParams {
   // first) and next all these pairs of bytes are concatenated into the string
   // from this field.
   optional bytes bytes_for_col_scales = 8;
+
+  reserved 5, 6;
 }
 
 // Stores all parameters for a given EmbeddingNetwork. This can either be a
@@ -78,16 +67,9 @@ message EmbeddingNetworkProto {
   optional MatrixParams softmax = 4;
   optional MatrixParams softmax_bias = 5;
 
-  // Meta-information about the embedding space.
-  repeated int32 embedding_dim = 6;
+  // Element i of the repeated field below indicates number of features that use
+  // the i-th embedding space.
   repeated int32 embedding_num_features = 7;
-  repeated int32 embedding_features_domain_size = 8;
-
-  // The concatenation offsets of each embedding space.
-  repeated int32 concat_offset = 9;
-
-  // Size of the concatenation layer.
-  optional int32 concat_layer_size = 10;
 
   // Whether or not this is intended to store a precomputed network.
   optional bool is_precomputed = 11 [default = false];
@@ -103,4 +85,9 @@ message EmbeddingNetworkProto {
 
   // Allow extensions.
   extensions 100 to max;
+
+  // NOTE: we skip a few fields from the server-side version of this proto.
+  // Those fields are redundant and we want to save code size in the C++ code
+  // that the proto compiler generates for this proto.
+  reserved 6, 8, 9, 10;
 }

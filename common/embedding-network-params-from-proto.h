@@ -65,17 +65,6 @@ class EmbeddingNetworkParamsFromProto : public EmbeddingNetworkParams {
         continue;
       }
 
-      // Issue some error messsages if old-style quantization fields are used;
-      // we always clear and ignore those fields.
-      if (embedding->col_scale_size() > 0) {
-        TC_LOG(ERROR) << "Proto using old-style quantization fields";
-        embedding->clear_col_scale();
-      }
-      if (embedding->quantized_value_size() > 0) {
-        TC_LOG(ERROR) << "Proto using old-style quantization fields.";
-        embedding->clear_quantized_value();
-      }
-
       bool success = FillVectorFromDataBytesInLittleEndian(
           embedding->bytes_for_quantized_values(),
           embedding->rows() * embedding->cols(),
@@ -84,6 +73,9 @@ class EmbeddingNetworkParamsFromProto : public EmbeddingNetworkParams {
         TC_LOG(ERROR) << "Problem decoding quant_weights for embeddings #" << i;
         valid_ = false;
       }
+
+      // The repeated field bytes_for_quantized_values uses a lot of memory.
+      // Since it's no longer necessary (and we own the proto), we clear it.
       embedding->clear_bytes_for_quantized_values();
 
       success = FillVectorFromDataBytesInLittleEndian(
@@ -94,6 +86,8 @@ class EmbeddingNetworkParamsFromProto : public EmbeddingNetworkParams {
         TC_LOG(ERROR) << "Problem decoding col_scales for embeddings #" << i;
         valid_ = false;
       }
+
+      // See comments for clear_bytes_for_quantized_values().
       embedding->clear_bytes_for_col_scales();
     }
   }
