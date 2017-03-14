@@ -30,26 +30,54 @@ include $(BUILD_STATIC_LIBRARY)
 # libtextclassifier
 # -----------------
 
-include $(CLEAR_VARS)
-LOCAL_MODULE := libtextclassifier
-
-LOCAL_CPP_EXTENSION := .cc
-LOCAL_CFLAGS += -Wno-unused-parameter \
+libtextclassifier_cflags := -Wno-unused-parameter \
     -Wno-sign-compare \
     -Wno-missing-field-initializers \
     -Wno-ignored-qualifiers \
     -Wno-undefined-var-template
 
+include $(CLEAR_VARS)
+LOCAL_MODULE := libtextclassifier
+
+proto_sources_dir := $(generated_sources_dir)
+
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CFLAGS += $(libtextclassifier_cflags)
+
 LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
-    find . -name "*.cc" -and -not -name ".*"))
+    find . -name "*.cc" -and -not -name ".*" -and -not -path "./tests/*"))
 LOCAL_C_INCLUDES += .
-LOCAL_C_INCLUDES += $(generated_sources_dir)/proto/external/libtextclassifier
+LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 
 LOCAL_SHARED_LIBRARIES := libprotobuf-cpp-lite
 LOCAL_STATIC_LIBRARIES := libtextclassifier_protos
 LOCAL_REQUIRED_MODULES := textclassifier.langid.model
 
 include $(BUILD_SHARED_LIBRARY)
+
+# -----------------------
+# libtextclassifier_tests
+# -----------------------
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libtextclassifier_tests
+LOCAL_MODULE_TAGS := tests
+
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CFLAGS += $(libtextclassifier_cflags)
+
+LOCAL_TEST_DATA := $(call find-test-data-in-subdirs, $(LOCAL_PATH), *, tests/testdata)
+
+LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
+    find . -name "*.cc" -and -not -name ".*"))
+LOCAL_C_INCLUDES += .
+LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
+
+LOCAL_STATIC_LIBRARIES := libtextclassifier_protos libgmock
+LOCAL_SHARED_LIBRARIES := libprotobuf-cpp-lite
+
+include $(BUILD_NATIVE_TEST)
 
 # ------------
 # LangId model
