@@ -47,5 +47,33 @@ LOCAL_C_INCLUDES += $(generated_sources_dir)/proto/external/libtextclassifier
 
 LOCAL_SHARED_LIBRARIES := libprotobuf-cpp-lite
 LOCAL_STATIC_LIBRARIES := libtextclassifier_protos
+LOCAL_REQUIRED_MODULES := textclassifier.langid.model
 
 include $(BUILD_SHARED_LIBRARY)
+
+# ------------
+# LangId model
+# ------------
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.langid.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_OWNER := google
+LOCAL_SRC_FILES     := ./models/textclassifier.langid.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+# ----------------------
+# Smart Selection models
+# ----------------------
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.en.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_OWNER := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.en.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
