@@ -52,6 +52,7 @@ LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 LOCAL_SHARED_LIBRARIES := libprotobuf-cpp-lite
 LOCAL_STATIC_LIBRARIES := libtextclassifier_protos
 LOCAL_REQUIRED_MODULES := textclassifier.langid.model
+LOCAL_REQUIRED_MODULES += textclassifier.smartselection.en.model
 
 include $(BUILD_SHARED_LIBRARY)
 
