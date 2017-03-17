@@ -43,29 +43,28 @@ FeatureProcessorOptions ParseSerializedOptions(
 TokenFeatureExtractorOptions BuildTokenFeatureExtractorOptions(
     const FeatureProcessorOptions& options);
 
-// Returns a modified version of the selection_with_context, such that only the
-// line that contains the clicked span is kept, the number of codepoints
-// the selection was moved by.
-std::pair<SelectionWithContext, int> ExtractLineWithClick(
-    const SelectionWithContext& selection_with_context);
+// Removes tokens that are not part of a line of the context which contains
+// given span.
+void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
+                               std::vector<Token>* tokens);
 
 // Splits tokens that contain the selection boundary inside them.
 // E.g. "foo{bar}@google.com" -> "foo", "bar", "@google.com"
 void SplitTokensOnSelectionBoundaries(CodepointSpan selection,
                                       std::vector<Token>* tokens);
 
+// Returns the index of token that corresponds to the codepoint span.
+int CenterTokenFromClick(CodepointSpan span, const std::vector<Token>& tokens);
+
+// Returns the index of token that corresponds to the middle of the  codepoint
+// span.
+int CenterTokenFromMiddleOfSelection(
+    CodepointSpan span, const std::vector<Token>& selectable_tokens);
+
 }  // namespace internal
 
 TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
                                    CodepointSpan codepoint_span);
-
-// Returns a modified version of the context string, such that only the
-// line that contains the span is kept. Also returns a codepoint shift
-// size that happend. If the span spans multiple lines, returns the original
-// input with zero shift.
-// The following characters are considered to be line separators: '\n', '|'
-std::pair<std::string, int> ExtractLineWithSpan(const std::string& context,
-                                                CodepointSpan span);
 
 // Takes care of preparing features for the FFModel.
 class FeatureProcessor {
@@ -92,9 +91,16 @@ class FeatureProcessor {
   // Tokenizes the input string using the selected tokenization method.
   std::vector<Token> Tokenize(const std::string& utf8_text) const;
 
+  bool GetFeatures(const std::string& context, CodepointSpan input_span,
+                   std::vector<nlp_core::FeatureVector>* features,
+                   std::vector<float>* extra_features,
+                   std::vector<CodepointSpan>* selection_label_spans) const;
+
   // NOTE: If dropout is on, subsequent calls of this function with the same
   // arguments might return different results.
-  bool GetFeaturesAndLabels(const SelectionWithContext& selection_with_context,
+  bool GetFeaturesAndLabels(const std::string& context,
+                            CodepointSpan input_span, CodepointSpan label_span,
+                            const std::string& label_collection,
                             std::vector<nlp_core::FeatureVector>* features,
                             std::vector<float>* extra_features,
                             std::vector<CodepointSpan>* selection_label_spans,
@@ -106,7 +112,8 @@ class FeatureProcessor {
   // NOTE: If dropout is on, subsequent calls of this function with the same
   // arguments might return different results.
   bool GetFeaturesAndLabels(
-      const SelectionWithContext& selection_with_context,
+      const std::string& context, CodepointSpan input_span,
+      CodepointSpan label_span, const std::string& label_collection,
       std::vector<std::vector<std::pair<int, float>>>* features,
       std::vector<float>* extra_features,
       std::vector<CodepointSpan>* selection_label_spans, int* selection_label,
@@ -179,11 +186,16 @@ class FeatureProcessor {
   // Converts a token span to the corresponding label.
   int TokenSpanToLabel(const std::pair<TokenIndex, TokenIndex>& span) const;
 
-  // Find tokens that are part of the selection.
+  // Finds tokens that are part of the selection.
   // NOTE: Will select all tokens that somehow overlap with the selection.
   std::vector<Token> FindTokensInSelection(
       const std::vector<Token>& selectable_tokens,
       const SelectionWithContext& selection_with_context) const;
+
+  // Finds the center token index in tokens vector, using the method defined
+  // in options_.
+  int FindCenterToken(CodepointSpan span,
+                      const std::vector<Token>& tokens) const;
 
  private:
   FeatureProcessorOptions options_;

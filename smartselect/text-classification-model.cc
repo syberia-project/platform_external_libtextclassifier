@@ -51,8 +51,15 @@ ModelParams* ModelParams::Build(const void* start, uint64 num_bytes) {
 
     // If no tokenization codepoint config is present, tokenize on space.
     if (feature_processor_options.tokenization_codepoint_config_size() == 0) {
-      TokenizationCodepointRange* config =
-          feature_processor_options.add_tokenization_codepoint_config();
+      TokenizationCodepointRange* config;
+      // New line character.
+      config = feature_processor_options.add_tokenization_codepoint_config();
+      config->set_start(10);
+      config->set_end(11);
+      config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
+
+      // Space character.
+      config = feature_processor_options.add_tokenization_codepoint_config();
       config->set_start(32);
       config->set_end(33);
       config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
@@ -186,23 +193,13 @@ bool TextClassificationModel::LoadModels(int fd) {
 }
 
 EmbeddingNetwork::Vector TextClassificationModel::InferInternal(
-    const std::string& context, CodepointSpan click_indices,
-    CodepointSpan selection_indices, const FeatureProcessor& feature_processor,
-    const EmbeddingNetwork* network,
-    std::vector<CodepointSpan>* selection_label_spans, int* selection_label,
-    CodepointSpan* selection_codepoint_label, int* classification_label) const {
-  SelectionWithContext selection_with_context;
-  selection_with_context.context = context;
-  selection_with_context.click_start = std::get<0>(click_indices);
-  selection_with_context.click_end = std::get<1>(click_indices);
-  selection_with_context.selection_start = std::get<0>(selection_indices);
-  selection_with_context.selection_end = std::get<1>(selection_indices);
-
+    const std::string& context, CodepointSpan span,
+    const FeatureProcessor& feature_processor, const EmbeddingNetwork* network,
+    std::vector<CodepointSpan>* selection_label_spans) const {
   std::vector<FeatureVector> features;
   std::vector<float> extra_features;
-  const bool features_computed = feature_processor.GetFeaturesAndLabels(
-      selection_with_context, &features, &extra_features, selection_label_spans,
-      selection_label, selection_codepoint_label, classification_label);
+  const bool features_computed = feature_processor.GetFeatures(
+      context, span, &features, &extra_features, selection_label_spans);
 
   EmbeddingNetwork::Vector scores;
   if (!features_computed) {
@@ -250,17 +247,10 @@ TextClassificationModel::SuggestSelectionInternal(
     return {click_indices, -1.0};
   }
 
-  // Invalid selection indices make the feature extraction use the provided
-  // click indices.
-  const CodepointSpan selection_indices({kInvalidIndex, kInvalidIndex});
-
   std::vector<CodepointSpan> selection_label_spans;
-  EmbeddingNetwork::Vector scores = InferInternal(
-      context, click_indices, selection_indices, *selection_feature_processor_,
-      selection_network_.get(), &selection_label_spans,
-      /*selection_label=*/nullptr,
-      /*selection_codepoint_label=*/nullptr,
-      /*classification_label=*/nullptr);
+  EmbeddingNetwork::Vector scores =
+      InferInternal(context, click_indices, *selection_feature_processor_,
+                    selection_network_.get(), &selection_label_spans);
 
   if (!scores.empty()) {
     scores = nlp_core::ComputeSoftmax(scores);
@@ -317,18 +307,12 @@ int GetClickTokenIndex(const std::vector<Token>& tokens,
 // matter which word of it was tapped - all of them will lead to the same
 // selection.
 CodepointSpan TextClassificationModel::SuggestSelectionSymmetrical(
-    const std::string& full_context, CodepointSpan click_indices) const {
-  // Extract context from the current line only.
-  std::string context;
-  int context_shift;
-  std::tie(context, context_shift) =
-      ExtractLineWithSpan(full_context, click_indices);
-  click_indices.first -= context_shift;
-  click_indices.second -= context_shift;
-
+    const std::string& context, CodepointSpan click_indices) const {
   std::vector<Token> tokens = selection_feature_processor_->Tokenize(context);
+  internal::StripTokensFromOtherLines(context, click_indices, &tokens);
 
-  const int click_index = GetClickTokenIndex(tokens, click_indices);
+  // const int click_index = GetClickTokenIndex(tokens, click_indices);
+  const int click_index = internal::CenterTokenFromClick(click_indices, tokens);
   if (click_index == kInvalidIndex) {
     return click_indices;
   }
@@ -337,7 +321,7 @@ CodepointSpan TextClassificationModel::SuggestSelectionSymmetrical(
 
   // Scan in the symmetry context for selection span proposals.
   std::vector<std::pair<CodepointSpan, float>> proposals;
-  for (int i = -symmetry_context_size; i < symmetry_context_size + 1; i++) {
+  for (int i = -symmetry_context_size; i < symmetry_context_size + 1; ++i) {
     const int token_index = click_index + i;
     if (token_index >= 0 && token_index < tokens.size()) {
       float score;
@@ -373,8 +357,7 @@ CodepointSpan TextClassificationModel::SuggestSelectionSymmetrical(
 
       if (feasible) {
         if (span.first <= click_index && span.second > click_index) {
-          return {span_result.first.first + context_shift,
-                  span_result.first.second + context_shift};
+          return {span_result.first.first, span_result.first.second};
         }
         for (int i = span.first; i < span.second; i++) {
           used_tokens[i] = 1;
@@ -383,8 +366,7 @@ CodepointSpan TextClassificationModel::SuggestSelectionSymmetrical(
     }
   }
 
-  return {click_indices.first + context_shift,
-          click_indices.second + context_shift};
+  return {click_indices.first, click_indices.second};
 }
 
 CodepointSpan TextClassificationModel::SuggestSelection(
@@ -409,13 +391,9 @@ TextClassificationModel::ClassifyText(const std::string& context,
     return {};
   }
 
-  // Invalid click indices make the feature extraction select the middle word in
-  // the selection span.
-  const CodepointSpan click_indices({kInvalidIndex, kInvalidIndex});
-
-  EmbeddingNetwork::Vector scores = InferInternal(
-      context, click_indices, selection_indices, *sharing_feature_processor_,
-      sharing_network_.get(), nullptr, nullptr, nullptr, nullptr);
+  EmbeddingNetwork::Vector scores =
+      InferInternal(context, selection_indices, *sharing_feature_processor_,
+                    sharing_network_.get(), nullptr);
   if (scores.empty()) {
     TC_LOG(ERROR) << "Using default class";
     return {};

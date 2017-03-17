@@ -28,28 +28,30 @@ namespace libtextclassifier {
 namespace {
 
 std::string GetModelPath() {
-  return "tests/testdata/smartselection.model";
+  return TEST_DATA_DIR "smartselection.model";
 }
 
 TEST(TextClassificationModelTest, SuggestSelection) {
   const std::string model_path = GetModelPath();
   int fd = open(model_path.c_str(), O_RDONLY);
-  std::unique_ptr<TextClassificationModel> ff_model(
+  std::unique_ptr<TextClassificationModel> model(
       new TextClassificationModel(fd));
   close(fd);
 
-  std::tuple<int, int> selection;
-  selection = ff_model->SuggestSelection(
-      "this afternoon Barack Obama gave a speech at", {15, 21});
-  EXPECT_EQ(15, std::get<0>(selection));
-  EXPECT_EQ(27, std::get<1>(selection));
+  EXPECT_EQ(model->SuggestSelection(
+                "this afternoon Barack Obama gave a speech at", {15, 21}),
+            std::make_pair(15, 27));
 
   // Try passing whole string.
-  selection =
-      ff_model->SuggestSelection("350 Third Street, Cambridge", {0, 27});
   // If more than 1 token is specified, we should return back what entered.
-  EXPECT_EQ(0, std::get<0>(selection));
-  EXPECT_EQ(27, std::get<1>(selection));
+  EXPECT_EQ(model->SuggestSelection("350 Third Street, Cambridge", {0, 27}),
+            std::make_pair(0, 27));
+
+  // Single letter.
+  EXPECT_EQ(std::make_pair(0, 1), model->SuggestSelection("a", {0, 1}));
+
+  // Single word.
+  EXPECT_EQ(std::make_pair(0, 4), model->SuggestSelection("asdf", {0, 4}));
 }
 
 TEST(TextClassificationModelTest, SuggestSelectionsAreSymmetric) {
@@ -183,6 +185,10 @@ TEST(TextClassificationModelTest, SuggestSelectionNoCrashWithJunk) {
 namespace {
 
 std::string FindBestResult(std::vector<std::pair<std::string, float>> results) {
+  if (results.empty()) {
+    return "<INVALID RESULTS>";
+  }
+
   std::sort(results.begin(), results.end(),
             [](const std::pair<std::string, float> a,
                const std::pair<std::string, float> b) {
@@ -211,6 +217,29 @@ TEST(TextClassificationModelTest, ClassifyText) {
                          "Call me at (800) 123-456 today", {11, 24})));
   EXPECT_EQ("url", FindBestResult(model->ClassifyText(
                        "Visit www.google.com every today!", {6, 20})));
+
+  // More lines.
+  EXPECT_EQ("other",
+            FindBestResult(model->ClassifyText(
+                "this afternoon Barack Obama gave a speech at|Visit "
+                "www.google.com every today!|Call me at (800) 123-456 today.",
+                {15, 27})));
+  EXPECT_EQ("url",
+            FindBestResult(model->ClassifyText(
+                "this afternoon Barack Obama gave a speech at|Visit "
+                "www.google.com every today!|Call me at (800) 123-456 today.",
+                {51, 65})));
+  EXPECT_EQ("phone",
+            FindBestResult(model->ClassifyText(
+                "this afternoon Barack Obama gave a speech at|Visit "
+                "www.google.com every today!|Call me at (800) 123-456 today.",
+                {90, 103})));
+
+  // Single word.
+  EXPECT_EQ("other", FindBestResult(model->ClassifyText("Obama", {0, 5})));
+  EXPECT_EQ("other", FindBestResult(model->ClassifyText("asdf", {0, 4})));
+  EXPECT_EQ("<INVALID RESULTS>",
+            FindBestResult(model->ClassifyText("asdf", {0, 0})));
 }
 
 }  // namespace

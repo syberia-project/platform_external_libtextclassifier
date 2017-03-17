@@ -98,6 +98,22 @@ message FeatureProcessorOptions {
   // Codepoint ranges that determine how different codepoints are tokenized.
   // The ranges must not overlap.
   repeated TokenizationCodepointRange tokenization_codepoint_config = 15;
+
+  // Method for selecting the center token.
+  enum CenterTokenSelectionMethod {
+    DEFAULT_CENTER_TOKEN_METHOD = 0;  // Invalid option.
+
+    // Use click indices to determine the center token.
+    CENTER_TOKEN_FROM_CLICK = 1;
+
+    // Use selection indices to get a token range, and select the middle of it
+    // as the center token.
+    CENTER_TOKEN_MIDDLE_OF_SELECTION = 2;
+  }
+  optional CenterTokenSelectionMethod center_token_selection_method = 16;
+
+  // If true, during training will click random token in the example selection.
+  optional bool click_random_token_in_selection = 17 [default = true];
 };
 
 extend nlp_core.EmbeddingNetworkProto {

@@ -30,7 +30,7 @@ namespace lang_id {
 namespace {
 
 std::string GetModelPath() {
-  return "tests/testdata/langid.model";
+  return TEST_DATA_DIR "langid.model";
 }
 
 // Creates a LangId with default model.  Passes ownership to

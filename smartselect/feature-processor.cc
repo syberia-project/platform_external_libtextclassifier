@@ -125,27 +125,8 @@ void FindSubstrings(const UnicodeText& t, const std::set<char32>& codepoints,
   }
 }
 
-std::pair<SelectionWithContext, int> ExtractLineWithClick(
-    const SelectionWithContext& selection_with_context) {
-  std::string new_context;
-  int shift;
-  std::tie(new_context, shift) = ExtractLineWithSpan(
-      selection_with_context.context,
-      {selection_with_context.click_start, selection_with_context.click_end});
-
-  SelectionWithContext result(selection_with_context);
-  result.selection_start -= shift;
-  result.selection_end -= shift;
-  result.click_start -= shift;
-  result.click_end -= shift;
-  result.context = new_context;
-  return {result, shift};
-}
-
-}  // namespace internal
-
-std::pair<std::string, int> ExtractLineWithSpan(const std::string& context,
-                                                CodepointSpan span) {
+void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
+                               std::vector<Token>* tokens) {
   const UnicodeText context_unicode = UTF8ToUnicodeText(context,
                                                         /*do_copy=*/false);
   std::vector<UnicodeTextRange> lines;
@@ -164,18 +145,25 @@ std::pair<std::string, int> ExtractLineWithSpan(const std::string& context,
   }
   for (const UnicodeTextRange& line : lines) {
     // Find the line that completely contains the span.
-    if (line.first <= span_start && line.second >= span_start &&
-        line.first <= span_end && line.second >= span_end) {
+    if (line.first <= span_start && line.second >= span_end) {
       const CodepointIndex last_line_begin_index =
           std::distance(context_unicode.begin(), line.first);
+      const CodepointIndex last_line_end_index =
+          last_line_begin_index + std::distance(line.first, line.second);
 
-      std::string result =
-          context_unicode.UTF8Substring(line.first, line.second);
-      return {result, last_line_begin_index};
+      for (auto token = tokens->begin(); token != tokens->end();) {
+        if (token->start >= last_line_begin_index &&
+            token->end <= last_line_end_index) {
+          ++token;
+        } else {
+          token = tokens->erase(token);
+        }
+      }
     }
   }
-  return {context, 0};
 }
+
+}  // namespace internal
 
 const char* const FeatureProcessor::kFeatureTypeName = "chargram_continuous";
 
@@ -308,56 +296,81 @@ int FindTokenThatContainsSpan(const std::vector<Token>& selectable_tokens,
   return kInvalidIndex;
 }
 
-// Helper function to get the click position (in terms of index into a vector of
-// selectable tokens), given selectable tokens. If click position is given, it
-// will be used. If it is not given, but selection is given, the click will be
-// the middle token in the selection range.
-int GetClickPosition(const SelectionWithContext& selection_with_context,
-                     const std::vector<Token>& selectable_tokens) {
-  int click_pos = kInvalidIndex;
-  if (selection_with_context.GetClickSpan() !=
-      std::make_pair(kInvalidIndex, kInvalidIndex)) {
-    int range_begin;
-    int range_end;
-    std::tie(range_begin, range_end) = CodepointSpanToTokenSpan(
-        selectable_tokens, selection_with_context.GetClickSpan());
+}  // namespace
 
-    // If no exact match was found, try finding a token that completely contains
-    // the click span. This is useful e.g. when Android builds the selection
-    // using ICU tokenization, and ends up with only a portion of our space-
-    // separated token. E.g. for "(857)" Android would select "857".
-    if (range_begin == kInvalidIndex || range_end == kInvalidIndex) {
-      int token_index = FindTokenThatContainsSpan(
-          selectable_tokens, selection_with_context.GetClickSpan());
-      if (token_index != kInvalidIndex) {
-        range_begin = token_index;
-        range_end = token_index + 1;
-      }
-    }
+namespace internal {
 
-    // We only allow clicks that are exactly 1 selectable token.
-    if (range_end - range_begin == 1) {
-      click_pos = range_begin;
-    } else {
-      click_pos = kInvalidIndex;
-    }
-  } else if (selection_with_context.GetSelectionSpan() !=
-             std::make_pair(kInvalidIndex, kInvalidIndex)) {
-    int range_begin;
-    int range_end;
-    std::tie(range_begin, range_end) = CodepointSpanToTokenSpan(
-        selectable_tokens, selection_with_context.GetSelectionSpan());
+int CenterTokenFromClick(CodepointSpan span,
+                         const std::vector<Token>& selectable_tokens) {
+  int range_begin;
+  int range_end;
+  std::tie(range_begin, range_end) =
+      CodepointSpanToTokenSpan(selectable_tokens, span);
 
-    // Center the clicked token in the selection range.
-    if (range_begin != kInvalidIndex && range_end != kInvalidIndex) {
-      click_pos = (range_begin + range_end - 1) / 2;
+  // If no exact match was found, try finding a token that completely contains
+  // the click span. This is useful e.g. when Android builds the selection
+  // using ICU tokenization, and ends up with only a portion of our space-
+  // separated token. E.g. for "(857)" Android would select "857".
+  if (range_begin == kInvalidIndex || range_end == kInvalidIndex) {
+    int token_index = FindTokenThatContainsSpan(selectable_tokens, span);
+    if (token_index != kInvalidIndex) {
+      range_begin = token_index;
+      range_end = token_index + 1;
     }
   }
 
-  return click_pos;
+  // We only allow clicks that are exactly 1 selectable token.
+  if (range_end - range_begin == 1) {
+    return range_begin;
+  } else {
+    return kInvalidIndex;
+  }
 }
 
-}  // namespace
+int CenterTokenFromMiddleOfSelection(
+    CodepointSpan span, const std::vector<Token>& selectable_tokens) {
+  int range_begin;
+  int range_end;
+  std::tie(range_begin, range_end) =
+      CodepointSpanToTokenSpan(selectable_tokens, span);
+
+  // Center the clicked token in the selection range.
+  if (range_begin != kInvalidIndex && range_end != kInvalidIndex) {
+    return (range_begin + range_end - 1) / 2;
+  } else {
+    return kInvalidIndex;
+  }
+}
+
+}  // namespace internal
+
+int FeatureProcessor::FindCenterToken(CodepointSpan span,
+                                      const std::vector<Token>& tokens) const {
+  if (options_.center_token_selection_method() ==
+      FeatureProcessorOptions::CENTER_TOKEN_FROM_CLICK) {
+    return internal::CenterTokenFromClick(span, tokens);
+  } else if (options_.center_token_selection_method() ==
+             FeatureProcessorOptions::CENTER_TOKEN_MIDDLE_OF_SELECTION) {
+    return internal::CenterTokenFromMiddleOfSelection(span, tokens);
+  } else if (options_.center_token_selection_method() ==
+             FeatureProcessorOptions::DEFAULT_CENTER_TOKEN_METHOD) {
+    // TODO(zilka): This is a HACK not to break the current models. Remove once
+    // we have new models on the device.
+    // It uses the fact that sharing model use
+    // split_tokens_on_selection_boundaries and selection not. So depending on
+    // this we select the right way of finding the click location.
+    if (!options_.split_tokens_on_selection_boundaries()) {
+      // SmartSelection model.
+      return internal::CenterTokenFromClick(span, tokens);
+    } else {
+      // SmartSharing model.
+      return internal::CenterTokenFromMiddleOfSelection(span, tokens);
+    }
+  } else {
+    TC_LOG(ERROR) << "Invalid center token selection method.";
+    return kInvalidIndex;
+  }
+}
 
 std::vector<Token> FeatureProcessor::FindTokensInSelection(
     const std::vector<Token>& selectable_tokens,
@@ -401,8 +414,20 @@ CodepointSpan FeatureProcessor::ClickRandomTokenInSelection(
   }
 }
 
+bool FeatureProcessor::GetFeatures(
+    const std::string& context, CodepointSpan input_span,
+    std::vector<nlp_core::FeatureVector>* features,
+    std::vector<float>* extra_features,
+    std::vector<CodepointSpan>* selection_label_spans) const {
+  return FeatureProcessor::GetFeaturesAndLabels(
+      context, input_span, {kInvalidIndex, kInvalidIndex}, "", features,
+      extra_features, selection_label_spans, /*selection_label=*/nullptr,
+      /*selection_codepoint_label=*/nullptr, /*classification_label=*/nullptr);
+}
+
 bool FeatureProcessor::GetFeaturesAndLabels(
-    const SelectionWithContext& selection_with_context,
+    const std::string& context, CodepointSpan input_span,
+    CodepointSpan label_span, const std::string& label_collection,
     std::vector<nlp_core::FeatureVector>* features,
     std::vector<float>* extra_features,
     std::vector<CodepointSpan>* selection_label_spans, int* selection_label,
@@ -413,39 +438,32 @@ bool FeatureProcessor::GetFeaturesAndLabels(
   *features =
       std::vector<nlp_core::FeatureVector>(options_.context_size() * 2 + 1);
 
-  SelectionWithContext selection_normalized;
-  int normalization_shift;
-  if (options_.only_use_line_with_click()) {
-    std::tie(selection_normalized, normalization_shift) =
-        internal::ExtractLineWithClick(selection_with_context);
-  } else {
-    selection_normalized = selection_with_context;
-    normalization_shift = 0;
+  std::vector<Token> input_tokens = Tokenize(context);
+
+  if (options_.split_tokens_on_selection_boundaries()) {
+    internal::SplitTokensOnSelectionBoundaries(input_span, &input_tokens);
   }
 
-  std::vector<Token> input_tokens = Tokenize(selection_normalized.context);
-  if (options_.split_tokens_on_selection_boundaries()) {
-    internal::SplitTokensOnSelectionBoundaries(
-        selection_with_context.GetSelectionSpan(), &input_tokens);
+  if (options_.only_use_line_with_click()) {
+    internal::StripTokensFromOtherLines(context, input_span, &input_tokens);
   }
-  int click_pos = GetClickPosition(selection_normalized, input_tokens);
+
+  const int click_pos = FindCenterToken(input_span, input_tokens);
   if (click_pos == kInvalidIndex) {
     TC_LOG(ERROR) << "Could not extract click position.";
     return false;
   }
 
   std::vector<Token> output_tokens;
-  bool status = ComputeFeatures(click_pos, input_tokens,
-                                selection_normalized.GetSelectionSpan(),
-                                features, extra_features, &output_tokens);
+  bool status = ComputeFeatures(click_pos, input_tokens, input_span, features,
+                                extra_features, &output_tokens);
   if (!status) {
     TC_LOG(ERROR) << "Feature computation failed.";
     return false;
   }
 
   if (selection_label != nullptr) {
-    status = SpanToLabel(selection_normalized.GetSelectionSpan(), output_tokens,
-                         selection_label);
+    status = SpanToLabel(label_span, output_tokens, selection_label);
     if (!status) {
       TC_LOG(ERROR) << "Could not convert selection span to label.";
       return false;
@@ -453,20 +471,10 @@ bool FeatureProcessor::GetFeaturesAndLabels(
   }
 
   if (selection_codepoint_label != nullptr) {
-    *selection_codepoint_label = selection_with_context.GetSelectionSpan();
+    *selection_codepoint_label = label_span;
   }
 
   if (selection_label_spans != nullptr) {
-    // If an input normalization was performed, we need to shift the tokens
-    // back to get the correct ranges in the original input.
-    if (normalization_shift) {
-      for (Token& token : output_tokens) {
-        if (token.start != kInvalidIndex && token.end != kInvalidIndex) {
-          token.start += normalization_shift;
-          token.end += normalization_shift;
-        }
-      }
-    }
     for (int i = 0; i < label_to_selection_.size(); ++i) {
       CodepointSpan span;
       status = LabelToSpan(i, output_tokens, &span);
@@ -479,14 +487,15 @@ bool FeatureProcessor::GetFeaturesAndLabels(
   }
 
   if (classification_label != nullptr) {
-    *classification_label = CollectionToLabel(selection_normalized.collection);
+    *classification_label = CollectionToLabel(label_collection);
   }
 
   return true;
 }
 
 bool FeatureProcessor::GetFeaturesAndLabels(
-    const SelectionWithContext& selection_with_context,
+    const std::string& context, CodepointSpan input_span,
+    CodepointSpan label_span, const std::string& label_collection,
     std::vector<std::vector<std::pair<int, float>>>* features,
     std::vector<float>* extra_features,
     std::vector<CodepointSpan>* selection_label_spans, int* selection_label,
@@ -499,10 +508,10 @@ bool FeatureProcessor::GetFeaturesAndLabels(
   }
 
   std::vector<nlp_core::FeatureVector> feature_vectors;
-  bool result = GetFeaturesAndLabels(selection_with_context, &feature_vectors,
-                                     extra_features, selection_label_spans,
-                                     selection_label, selection_codepoint_label,
-                                     classification_label);
+  bool result = GetFeaturesAndLabels(
+      context, input_span, label_span, label_collection, &feature_vectors,
+      extra_features, selection_label_spans, selection_label,
+      selection_codepoint_label, classification_label);
 
   if (!result) {
     return false;

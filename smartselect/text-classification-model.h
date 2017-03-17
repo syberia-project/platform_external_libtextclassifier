@@ -137,13 +137,10 @@ class TextClassificationModel {
   bool LoadModels(int fd);
 
   nlp_core::EmbeddingNetwork::Vector InferInternal(
-      const std::string& context, CodepointSpan click_indices,
-      CodepointSpan selection_indices,
+      const std::string& context, CodepointSpan span,
       const FeatureProcessor& feature_processor,
       const nlp_core::EmbeddingNetwork* network,
-      std::vector<CodepointSpan>* selection_label_spans, int* selection_label,
-      CodepointSpan* selection_codepoint_label,
-      int* classification_label) const;
+      std::vector<CodepointSpan>* selection_label_spans) const;
 
   // Returns a selection suggestion with a score.
   std::pair<CodepointSpan, float> SuggestSelectionInternal(
