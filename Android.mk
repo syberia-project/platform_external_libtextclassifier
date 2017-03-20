@@ -12,14 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Useful environment variables that can be set on the mmma command line, as
+# <key>=<value> pairs:
+#
+# LIBTEXTCLASSIFIER_STRIP_OPTS: (optional) value for LOCAL_STRIP_MODULE (for all
+#   modules we build).  NOT for prod builds.  Can be set to keep_symbols for
+#   debug / treemap purposes.
+
+
+LOCAL_PATH := $(call my-dir)
+
+# Custom C/C++ compilation flags:
+MY_LIBTEXTCLASSIFIER_CFLAGS := \
+    -Wno-unused-parameter \
+    -Wno-sign-compare \
+    -Wno-missing-field-initializers \
+    -Wno-ignored-qualifiers \
+    -Wno-undefined-var-template
+
 # ------------------------
 # libtextclassifier_protos
 # ------------------------
 
-LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libtextclassifier_protos
+
+LOCAL_STRIP_MODULE := $(LIBTEXTCLASSIFIER_STRIP_OPTS)
 
 LOCAL_SRC_FILES := $(call all-proto-files-under, .)
 LOCAL_SHARED_LIBRARIES := libprotobuf-cpp-lite
@@ -30,19 +49,14 @@ include $(BUILD_STATIC_LIBRARY)
 # libtextclassifier
 # -----------------
 
-libtextclassifier_cflags := -Wno-unused-parameter \
-    -Wno-sign-compare \
-    -Wno-missing-field-initializers \
-    -Wno-ignored-qualifiers \
-    -Wno-undefined-var-template
-
 include $(CLEAR_VARS)
 LOCAL_MODULE := libtextclassifier
 
 proto_sources_dir := $(generated_sources_dir)
 
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CFLAGS += $(libtextclassifier_cflags)
+LOCAL_CFLAGS += $(MY_LIBTEXTCLASSIFIER_CFLAGS)
+LOCAL_STRIP_MODULE := $(LIBTEXTCLASSIFIER_STRIP_OPTS)
 
 LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
     find . -name "*.cc" -and -not -name ".*" -and -not -path "./tests/*"))
@@ -66,7 +80,8 @@ LOCAL_MODULE := libtextclassifier_tests
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CFLAGS += $(libtextclassifier_cflags)
+LOCAL_CFLAGS += $(MY_LIBTEXTCLASSIFIER_CFLAGS)
+LOCAL_STRIP_MODULE := $(LIBTEXTCLASSIFIER_STRIP_OPTS)
 
 LOCAL_TEST_DATA := $(call find-test-data-in-subdirs, $(LOCAL_PATH), *, tests/testdata)
 
