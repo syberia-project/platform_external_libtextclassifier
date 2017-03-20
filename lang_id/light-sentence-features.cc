@@ -22,8 +22,8 @@ namespace libtextclassifier {
 namespace nlp_core {
 
 // Registry for the features on whole light sentences.
-REGISTER_CLASS_REGISTRY("light sentence feature function",
-                        lang_id::LightSentenceFeature);
+TC_DEFINE_CLASS_REGISTRY_NAME("light sentence feature function",
+                              lang_id::LightSentenceFeature);
 
 }  // namespace nlp_core
 }  // namespace libtextclassifier

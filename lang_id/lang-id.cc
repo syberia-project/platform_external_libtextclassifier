@@ -37,7 +37,10 @@
 #include "common/task-context.h"
 #include "lang_id/custom-tokenizer.h"
 #include "lang_id/lang-id-brain-interface.h"
+#include "lang_id/language-identifier-features.h"
+#include "lang_id/light-sentence-features.h"
 #include "lang_id/light-sentence.h"
+#include "lang_id/relevant-script-feature.h"
 #include "util/base/logging.h"
 #include "util/base/macros.h"
 
@@ -78,6 +81,10 @@ class LangIdImpl {
   void Initialize(const MmapHandle &mmap_handle) {
     // Will set valid_ to true only on successful initialization.
     valid_ = false;
+
+    // Make sure all relevant features are registered:
+    ContinuousBagOfNgramsFunction::RegisterClass();
+    RelevantScriptFeature::RegisterClass();
 
     if (!mmap_handle.ok()) {
       TC_LOG(ERROR) << "Unable to read model bytes.";

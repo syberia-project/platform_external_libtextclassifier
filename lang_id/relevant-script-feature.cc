@@ -86,9 +86,6 @@ void RelevantScriptFeature::Evaluate(const WorkspaceSet &workspaces,
   }
 }
 
-REGISTER_LIGHT_SENTENCE_FEATURE("continuous-bag-of-relevant-scripts",
-                                RelevantScriptFeature);
-
 }  // namespace lang_id
 }  // namespace nlp_core
 }  // namespace libtextclassifier

@@ -28,70 +28,11 @@
 #include "common/feature-extractor.h"
 #include "common/memory_image/embedding-network-params-from-image.h"
 #include "smartselect/feature-processor.h"
+#include "smartselect/model-params.h"
 #include "smartselect/text-classification-model.pb.h"
 #include "smartselect/types.h"
 
 namespace libtextclassifier {
-
-// Loads and holds the parameters of the inference network.
-//
-// This class overrides a couple of methods of EmbeddingNetworkParamsFromImage
-// because we only have one embedding matrix for all positions of context,
-// whereas the original class would have a separate one for each.
-class ModelParams : public nlp_core::EmbeddingNetworkParamsFromImage {
- public:
-  static ModelParams* Build(const void* start, uint64 num_bytes);
-
-  const FeatureProcessorOptions& GetFeatureProcessorOptions() const {
-    return feature_processor_options_;
-  }
-
-  const SelectionModelOptions& GetSelectionModelOptions() const {
-    return selection_options_;
-  }
-
- protected:
-  int embeddings_size() const override { return context_size_ * 2 + 1; }
-
-  int embedding_num_features_size() const override {
-    return context_size_ * 2 + 1;
-  }
-
-  int embedding_num_features(int i) const override { return 1; }
-
-  int embeddings_num_rows(int i) const override {
-    return EmbeddingNetworkParamsFromImage::embeddings_num_rows(0);
-  };
-
-  int embeddings_num_cols(int i) const override {
-    return EmbeddingNetworkParamsFromImage::embeddings_num_cols(0);
-  };
-
-  const void* embeddings_weights(int i) const override {
-    return EmbeddingNetworkParamsFromImage::embeddings_weights(0);
-  };
-
-  nlp_core::QuantizationType embeddings_quant_type(int i) const override {
-    return EmbeddingNetworkParamsFromImage::embeddings_quant_type(0);
-  }
-
-  const nlp_core::float16* embeddings_quant_scales(int i) const override {
-    return EmbeddingNetworkParamsFromImage::embeddings_quant_scales(0);
-  }
-
- private:
-  ModelParams(const void* start, uint64 num_bytes,
-              const SelectionModelOptions& selection_options,
-              const FeatureProcessorOptions& feature_processor_options)
-      : EmbeddingNetworkParamsFromImage(start, num_bytes),
-        selection_options_(selection_options),
-        feature_processor_options_(feature_processor_options),
-        context_size_(feature_processor_options_.context_size()) {}
-
-  SelectionModelOptions selection_options_;
-  FeatureProcessorOptions feature_processor_options_;
-  int context_size_;
-};
 
 // SmartSelection/Sharing feed-forward model.
 class TextClassificationModel {

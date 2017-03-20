@@ -48,6 +48,9 @@ class ContinuousBagOfNgramsFunction : public LightSentenceFeature {
   void Evaluate(const WorkspaceSet &workspaces, const LightSentence &sentence,
                 FeatureVector *result) const override;
 
+  TC_DEFINE_REGISTRATION_METHOD("continuous-bag-of-ngrams",
+                                ContinuousBagOfNgramsFunction);
+
  private:
   // Auxiliary for Evaluate().  Fills counts_ and non_zero_count_indices_ (see
   // below), and returns the total ngram count.

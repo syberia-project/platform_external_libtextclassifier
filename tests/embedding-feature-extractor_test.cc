@@ -16,12 +16,23 @@
 
 #include "common/embedding-feature-extractor.h"
 
+#include "lang_id/language-identifier-features.h"
 #include "lang_id/light-sentence-features.h"
 #include "lang_id/light-sentence.h"
+#include "lang_id/relevant-script-feature.h"
 #include "gtest/gtest.h"
 
 namespace libtextclassifier {
 namespace nlp_core {
+
+class EmbeddingFeatureExtractorTest : public ::testing::Test {
+ public:
+  void SetUp() override {
+    // Make sure all relevant features are registered:
+    lang_id::ContinuousBagOfNgramsFunction::RegisterClass();
+    lang_id::RelevantScriptFeature::RegisterClass();
+  }
+};
 
 // Specialization of EmbeddingFeatureExtractor that extracts from LightSentence.
 class TestEmbeddingFeatureExtractor
@@ -31,7 +42,7 @@ class TestEmbeddingFeatureExtractor
   const std::string ArgPrefix() const override { return "test"; }
 };
 
-TEST(EmbeddingFeatureExtractor, NoEmbeddingSpaces) {
+TEST_F(EmbeddingFeatureExtractorTest, NoEmbeddingSpaces) {
   TaskContext context;
   context.SetParameter("test_features", "");
   context.SetParameter("test_embedding_names", "");
@@ -41,7 +52,7 @@ TEST(EmbeddingFeatureExtractor, NoEmbeddingSpaces) {
   EXPECT_EQ(tefe.NumEmbeddings(), 0);
 }
 
-TEST(EmbeddingFeatureExtractor, GoodSpec) {
+TEST_F(EmbeddingFeatureExtractorTest, GoodSpec) {
   TaskContext context;
   const std::string spec =
       "continuous-bag-of-ngrams(id_dim=5000,size=3);"
@@ -58,7 +69,7 @@ TEST(EmbeddingFeatureExtractor, GoodSpec) {
   EXPECT_EQ(tefe.EmbeddingDims(1), 24);
 }
 
-TEST(EmbeddingFeatureExtractor, MissmatchFmlVsNames) {
+TEST_F(EmbeddingFeatureExtractorTest, MissmatchFmlVsNames) {
   TaskContext context;
   const std::string spec =
       "continuous-bag-of-ngrams(id_dim=5000,size=3);"
@@ -70,7 +81,7 @@ TEST(EmbeddingFeatureExtractor, MissmatchFmlVsNames) {
   ASSERT_FALSE(tefe.Init(&context));
 }
 
-TEST(EmbeddingFeatureExtractor, MissmatchFmlVsDims) {
+TEST_F(EmbeddingFeatureExtractorTest, MissmatchFmlVsDims) {
   TaskContext context;
   const std::string spec =
       "continuous-bag-of-ngrams(id_dim=5000,size=3);"
@@ -82,7 +93,7 @@ TEST(EmbeddingFeatureExtractor, MissmatchFmlVsDims) {
   ASSERT_FALSE(tefe.Init(&context));
 }
 
-TEST(EmbeddingFeatureExtractor, BrokenSpec) {
+TEST_F(EmbeddingFeatureExtractorTest, BrokenSpec) {
   TaskContext context;
   const std::string spec =
       "continuous-bag-of-ngrams(id_dim=5000;"
@@ -94,7 +105,7 @@ TEST(EmbeddingFeatureExtractor, BrokenSpec) {
   ASSERT_FALSE(tefe.Init(&context));
 }
 
-TEST(EmbeddingFeatureExtractor, MissingFeature) {
+TEST_F(EmbeddingFeatureExtractorTest, MissingFeature) {
   TaskContext context;
   const std::string spec =
       "continuous-bag-of-ngrams(id_dim=5000,size=3);"
@@ -106,7 +117,7 @@ TEST(EmbeddingFeatureExtractor, MissingFeature) {
   ASSERT_FALSE(tefe.Init(&context));
 }
 
-TEST(EmbeddingFeatureExtractor, MultipleFeatures) {
+TEST_F(EmbeddingFeatureExtractorTest, MultipleFeatures) {
   TaskContext context;
   const std::string spec =
       "continuous-bag-of-ngrams(id_dim=1000,size=3);"

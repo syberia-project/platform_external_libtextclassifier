@@ -22,6 +22,13 @@ import "external/libtextclassifier/smartselect/tokenizer.proto";
 
 package libtextclassifier;
 
+// Generic options of a model, non-specific to selection or sharing.
+message ModelOptions {
+  // If true, will use embeddings from a different model. This is mainly useful
+  // for the Sharing model using the embeddings from the Selection model.
+  optional bool use_shared_embeddings = 1;
+}
+
 message SelectionModelOptions {
   // A list of Unicode codepoints to strip from predicted selections.
   repeated int32 punctuation_to_strip = 1;
@@ -117,6 +124,7 @@ message FeatureProcessorOptions {
 };
 
 extend nlp_core.EmbeddingNetworkProto {
+  optional ModelOptions model_options_in_embedding_network_proto = 150063045;
   optional FeatureProcessorOptions
       feature_processor_options_in_embedding_network_proto = 146230910;
   optional SelectionModelOptions

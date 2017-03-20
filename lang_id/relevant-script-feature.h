@@ -46,6 +46,9 @@ class RelevantScriptFeature : public LightSentenceFeature {
   // Appends the features computed from the sentence to the feature vector.
   void Evaluate(const WorkspaceSet &workspaces, const LightSentence &sentence,
                 FeatureVector *result) const override;
+
+  TC_DEFINE_REGISTRATION_METHOD("continuous-bag-of-relevant-scripts",
+                                RelevantScriptFeature);
 };
 
 }  // namespace lang_id

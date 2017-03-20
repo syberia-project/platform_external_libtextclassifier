@@ -114,6 +114,9 @@ struct SelectionWithContext {
   // Type of the selection.
   std::string collection;
 
+  // Whether the SelectionWithContext is invalid.
+  bool is_invalid;
+
   CodepointSpan GetClickSpan() const { return {click_start, click_end}; }
 
   CodepointSpan GetSelectionSpan() const {

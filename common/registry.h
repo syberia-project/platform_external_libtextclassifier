@@ -14,42 +14,90 @@
  * limitations under the License.
  */
 
-// Registry for component registration. These classes can be used for creating
-// registries of components conforming to the same interface. This is useful for
-// making a component-based architecture where the specific implementation
-// classes can be selected at runtime. There is support for both class-based and
-// instance based registries.
+// Mechanism to instantiate classes by name.
 //
-// Example:
-//  function.h:
+// This mechanism is useful if the concrete classes to be instantiated are not
+// statically known (e.g., if their names are read from a dynamically-provided
+// config).
 //
-//   class Function : public RegisterableInstance<Function> {
-//    public:
-//     virtual double Evaluate(double x) = 0;
-//   };
+// In that case, the first step is to define the API implemented by the
+// instantiated classes.  E.g.,
 //
-//   #define REGISTER_FUNCTION(type, component)
-//     REGISTER_INSTANCE_COMPONENT(Function, type, component);
+//  // In a header file function.h:
 //
-//  function.cc:
+//  // Abstract function that takes a double and returns a double.
+//  class Function : public RegisterableClass<Function> {
+//   public:
+//    virtual double Evaluate(double x) = 0;
+//  };
 //
-//   REGISTER_INSTANCE_REGISTRY("function", Function);
+// Notice the inheritance from RegisterableClass<Function>.  RegisterableClass
+// is defined by this file (registry.h).  Under the hood, this inheritanace
+// defines a "registry" that maps names (zero-terminated arrays of chars) to
+// factory methods that create Functions.  You should give a human-readable name
+// to this registry.  To do that, use the following macro in a .cc file (it has
+// to be a .cc file, as it defines some static data):
+//
+//  // Inside function.cc
+//  TC_DEFINE_CLASS_REGISTRY_NAME("function", Function);
+//
+// Now, let's define a few concrete Functions: e.g.,
 //
 //   class Cos : public Function {
 //    public:
 //     double Evaluate(double x) { return cos(x); }
+//     TC_DEFINE_REGISTRATION_METHOD("cos", Cos);
 //   };
 //
 //   class Exp : public Function {
 //    public:
 //     double Evaluate(double x) { return exp(x); }
+//     TC_DEFINE_REGISTRATION_METHOD("sin", Sin);
 //   };
 //
-//   REGISTER_FUNCTION("cos", Cos);
-//   REGISTER_FUNCTION("exp", Exp);
+// Each concrete Function implementation should have (in the public section) the
+// macro
 //
-//   Function *f = Function::Lookup("cos");
+//   TC_DEFINE_REGISTRATION_METHOD(base_class, "name", implementation_class);
+//
+// This defines a RegisterClass static method that, when invoked, associates
+// "name" with a factory method that creates instances of implementation_class.
+//
+// Before instantiating Functions by name, we need to tell our system which
+// Functions we may be interested in.  This is done by calling the
+// Foo::RegisterClass() for each relevant Foo implementation of Function.  It is
+// ok to call Foo::RegisterClass() multiple times (even in parallel): only the
+// first call will perform something, the others will return immediately.
+//
+//   Cos::RegisterClass();
+//   Exp::RegisterClass();
+//
+// Now, let's instantiate a Function based on its name.  This get a lot more
+// interesting if the Function name is not statically known (i.e.,
+// read from an input proto:
+//
+//   std::unique_ptr<Function> f.reset(Function::Create("cos"));
 //   double result = f->Evaluate(arg);
+//
+// NOTE: the same binary can use this mechanism for different APIs.  E.g., one
+// can also have (in the binary with Function, Sin, Cos, etc):
+//
+// class IntFunction : RegisterableClass<IntFunction> {
+//  public:
+//   virtual int Evaluate(int k) = 0;
+// };
+//
+// TC_DEFINE_CLASS_REGISTRY_NAME("int function", IntFunction);
+//
+// class Inc : public IntFunction {
+//  public:
+//   int Evaluate(int k) { return k + 1; }
+//   TC_DEFINE_REGISTRATION_METHOD("inc", Inc);
+// };
+//
+// RegisterableClass<Function> and RegisterableClass<IntFunction> define their
+// own registries: each maps string names to implementation of the corresponding
+// API.
 
 #ifndef LIBTEXTCLASSIFIER_COMMON_REGISTRY_H_
 #define LIBTEXTCLASSIFIER_COMMON_REGISTRY_H_
@@ -64,139 +112,94 @@
 namespace libtextclassifier {
 namespace nlp_core {
 
-// Component metadata with information about name, class, and code location.
-class ComponentMetadata {
+namespace internal {
+// Registry that associates keys (zero-terminated array of chars) with values.
+// Values are pointers to type T (the template parameter).  This is used to
+// store the association between component names and factory methods that
+// produce those components; the error messages are focused on that case.
+//
+// Internally, this registry uses a linked list of (key, value) pairs.  We do
+// not use an STL map, list, etc because we aim for small code size.
+template <class T>
+class ComponentRegistry {
  public:
-  ComponentMetadata(const char *name, const char *class_name, const char *file,
-                    int line)
-      : name_(name),
-        class_name_(class_name),
-        file_(file),
-        line_(line),
-        link_(nullptr) {}
+  explicit ComponentRegistry(const char *name) : name_(name), head_(nullptr) {}
 
-  // Returns component name.
+  // Adds a the (key, value) pair to this registry (if the key does not already
+  // exists in this registry) and returns true.  If the registry already has a
+  // mapping for key, returns false and does not modify the registry.  NOTE: the
+  // error (false) case happens even if the existing value for key is equal with
+  // the new one.
+  //
+  // This method does not take ownership of key, nor of value.
+  bool Add(const char *key, T *value) {
+    const Cell *old_cell = FindCell(key);
+    if (old_cell != nullptr) {
+      TC_LOG(ERROR) << "Duplicate component: " << key;
+      return false;
+    }
+    Cell *new_cell = new Cell(key, value, head_);
+    head_ = new_cell;
+    return true;
+  }
+
+  // Returns the value attached to a key in this registry.  Returns nullptr on
+  // error (e.g., unknown key).
+  T *Lookup(const char *key) const {
+    const Cell *cell = FindCell(key);
+    if (cell == nullptr) {
+      TC_LOG(ERROR) << "Unknown " << name() << " component: " << key;
+    }
+    return (cell == nullptr) ? nullptr : cell->value();
+  }
+
+  T *Lookup(const std::string &key) const { return Lookup(key.c_str()); }
+
+  // Returns name of this ComponentRegistry.
   const char *name() const { return name_; }
 
-  // Metadata objects can be linked in a list.
-  ComponentMetadata *link() const { return link_; }
-  void set_link(ComponentMetadata *link) { link_ = link; }
-
  private:
-  // Component name.
-  const char *name_;
-
-  // Name of class for component.
-  const char *class_name_;
-
-  // Code file and location where the component was registered.
-  const char *file_;
-  int line_;
-
-  // Link to next metadata object in list.
-  ComponentMetadata *link_;
-};
-
-// The master registry contains all registered component registries. A registry
-// is not registered in the master registry until the first component of that
-// type is registered.
-class RegistryMetadata : public ComponentMetadata {
- public:
-  RegistryMetadata(const char *name, const char *class_name, const char *file,
-                   int line, ComponentMetadata **components)
-      : ComponentMetadata(name, class_name, file, line),
-        components_(components) {}
-
-  // Registers a component registry in the master registry.
-  static void Register(RegistryMetadata *registry);
-
- private:
-  // Location of list of components in registry.
-  ComponentMetadata **components_;
-};
-
-// Registry for components. An object can be registered with a type name in the
-// registry. The named instances in the registry can be returned using the
-// Lookup() method. The components in the registry are put into a linked list
-// of components. It is important that the component registry can be statically
-// initialized in order not to depend on initialization order.
-template <class T>
-struct ComponentRegistry {
-  typedef ComponentRegistry<T> Self;
-
-  // Component registration class.
-  class Registrar : public ComponentMetadata {
+  // Cell for the singly-linked list underlying this ComponentRegistry.  Each
+  // cell contains a key, the value for that key, as well as a pointer to the
+  // next Cell from the list.
+  class Cell {
    public:
-    // Registers new component by linking itself into the component list of
-    // the registry.
-    Registrar(Self *registry, const char *type, const char *class_name,
-              const char *file, int line, T *object)
-        : ComponentMetadata(type, class_name, file, line), object_(object) {
-      // Register registry in master registry if this is the first registered
-      // component of this type.
-      if (registry->components == nullptr) {
-        RegistryMetadata::Register(new RegistryMetadata(
-            registry->name, registry->class_name, registry->file,
-            registry->line,
-            reinterpret_cast<ComponentMetadata **>(&registry->components)));
-      }
+    // Constructs a new Cell.
+    Cell(const char *key, T *value, Cell *next)
+        : key_(key), value_(value), next_(next) {}
 
-      // Register component in registry.
-      set_link(registry->components);
-      registry->components = this;
-    }
-
-    // Returns component type.
-    const char *type() const { return name(); }
-
-    // Returns component object.
-    T *object() const { return object_; }
-
-    // Returns the next component in the component list.
-    Registrar *next() const { return static_cast<Registrar *>(link()); }
+    const char *key() const { return key_; }
+    T *value() const { return value_; }
+    Cell *next() const { return next_; }
 
    private:
-    // Component object.
-    T *object_;
+    const char *const key_;
+    T *const value_;
+    Cell *const next_;
   };
 
-  // Finds registrar for named component in registry.  Returns pointer to
-  // registrar or nullptr on error (e.g., unknown component).
+  // Finds Cell for indicated key in the singly-linked list pointed to by head_.
+  // Returns pointer to that first Cell with that key, or nullptr if no such
+  // Cell (i.e., unknown key).
   //
   // Caller does NOT own the returned pointer.
-  const Registrar *GetComponent(const char *type) const {
-    Registrar *r = components;
-    while (r != nullptr && strcmp(type, r->type()) != 0) r = r->next();
-    if (r == nullptr) {
-      TC_LOG(ERROR) << "Unknown " << name << " component: '" << type << "'.";
+  const Cell *FindCell(const char *key) const {
+    Cell *c = head_;
+    while (c != nullptr && strcmp(key, c->key()) != 0) {
+      c = c->next();
     }
-    return r;
+    return c;
   }
 
-  // Finds a named component in the registry.  Returns nullptr on error (e.g.,
-  // unknown component).
-  T *Lookup(const char *type) const {
-    const Registrar *registrar = GetComponent(type);
-    return (registrar == nullptr) ? nullptr : registrar->object();
-  }
+  // Human-readable description for this ComponentRegistry.  For debug purposes.
+  const char *const name_;
 
-  T *Lookup(const std::string &type) const { return Lookup(type.c_str()); }
-
-  // Textual description of the kind of components in the registry.
-  const char *name;
-
-  // Base class name of component type.
-  const char *class_name;
-
-  // File and line where the registry is defined.
-  const char *file;
-  int line;
-
-  // Linked list of registered components.
-  Registrar *components;
+  // Pointer to the first Cell from the underlying list of (key, value) pairs.
+  Cell *head_;
 };
+}  // namespace internal
 
-// Base class for registerable class-based components.
+// Base class for registerable classes.
 template <class T>
 class RegisterableClass {
  public:
@@ -204,63 +207,62 @@ class RegisterableClass {
   typedef T *(Factory)();
 
   // Registry type.
-  typedef ComponentRegistry<Factory> Registry;
+  typedef internal::ComponentRegistry<Factory> Registry;
 
-  // Creates a new component instance.  Returns pointer to new instante or
-  // nullptr in case of errors (e.g., unknown component).
+  // Creates a new instance of T.  Returns pointer to new instance or nullptr in
+  // case of errors (e.g., unknown component).
   //
   // Passes ownership of the returned pointer to the caller.
   //
   // Note: we disable google3-readability-uniqueptr-factory warning, as this is
   // very hard to change now.
-  static T *Create(const std::string &type) {  // NOLINT
-    auto *factory = registry()->Lookup(type);
+  static T *Create(const std::string &name) {  // NOLINT
+    auto *factory = registry()->Lookup(name);
     if (factory == nullptr) {
-      TC_LOG(ERROR) << "Unknown RegisterableClass " << type;
+      TC_LOG(ERROR) << "Unknown RegisterableClass " << name;
       return nullptr;
     }
     return factory();
   }
 
   // Returns registry for class.
-  static Registry *registry() { return &registry_; }
+  static Registry *registry() {
+    static Registry *registry_for_type_t = new Registry(kRegistryName);
+    return registry_for_type_t;
+  }
+
+ protected:
+  // Factory method for subclass ComponentClass.  Used internally by the static
+  // method RegisterClass() defined by TC_DEFINE_REGISTRATION_METHOD.
+  template <class ComponentClass>
+  static T *_internal_component_factory() {
+    return new ComponentClass();
+  }
 
  private:
-  // Registry for class.
-  static Registry registry_;
+  // Human-readable name for the registry for this class.
+  static const char kRegistryName[];
 };
 
-// Base class for registerable instance-based components.
-template <class T>
-class RegisterableInstance {
- public:
-  // Registry type.
-  typedef ComponentRegistry<T> Registry;
+// Defines the static method component_class::RegisterClass() that should be
+// called before trying to instantiate component_class by name.  Should be used
+// inside the public section of the declaration of component_class.  See
+// comments at the top-level of this file.
+#define TC_DEFINE_REGISTRATION_METHOD(component_name, component_class)  \
+  static void RegisterClass() {                                         \
+    static bool once = registry()->Add(                                 \
+        component_name, &_internal_component_factory<component_class>); \
+    if (!once) {                                                        \
+      TC_LOG(ERROR) << "Problem registering " << component_name;        \
+    }                                                                   \
+    TC_DCHECK(once);                                                    \
+  }
 
- private:
-  // Registry for class.
-  static Registry registry_;
-};
-
-#define REGISTER_CLASS_COMPONENT(base, type, component)             \
-  static base *__##component##__factory() { return new component; } \
-  static base::Registry::Registrar __##component##__##registrar(    \
-      base::registry(), type, #component, __FILE__, __LINE__,       \
-      __##component##__factory)
-
-#define REGISTER_CLASS_REGISTRY(type, classname)                  \
-  template <>                                                     \
-  classname::Registry RegisterableClass<classname>::registry_ = { \
-      type, #classname, __FILE__, __LINE__, NULL}
-
-#define REGISTER_INSTANCE_COMPONENT(base, type, component)       \
-  static base::Registry::Registrar __##component##__##registrar( \
-      base::registry(), type, #component, __FILE__, __LINE__, new component)
-
-#define REGISTER_INSTANCE_REGISTRY(type, classname)                  \
-  template <>                                                        \
-  classname::Registry RegisterableInstance<classname>::registry_ = { \
-      type, #classname, __FILE__, __LINE__, NULL}
+// Defines the human-readable name of the registry associated with base_class.
+#define TC_DEFINE_CLASS_REGISTRY_NAME(registry_name, base_class) \
+  template <>                                                    \
+  const char ::libtextclassifier::nlp_core::RegisterableClass<   \
+      base_class>::kRegistryName[] = registry_name
 
 }  // namespace nlp_core
 }  // namespace libtextclassifier

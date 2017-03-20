@@ -136,9 +136,6 @@ void ContinuousBagOfNgramsFunction::Evaluate(const WorkspaceSet &workspaces,
   non_zero_count_indices_.clear();
 }
 
-REGISTER_LIGHT_SENTENCE_FEATURE("continuous-bag-of-ngrams",
-                                ContinuousBagOfNgramsFunction);
-
 }  // namespace lang_id
 }  // namespace nlp_core
 }  // namespace libtextclassifier

@@ -30,10 +30,6 @@ typedef FeatureFunction<LightSentence> LightSentenceFeature;
 // Feature extractor for LightSentences.
 typedef FeatureExtractor<LightSentence> LightSentenceExtractor;
 
-// Macro to register features for LightSentences.
-#define REGISTER_LIGHT_SENTENCE_FEATURE(name, type) \
-  REGISTER_FEATURE_FUNCTION(LightSentenceFeature, name, type)
-
 }  // namespace lang_id
 }  // namespace nlp_core
 }  // namespace libtextclassifier

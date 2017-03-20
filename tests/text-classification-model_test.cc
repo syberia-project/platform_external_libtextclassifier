@@ -72,6 +72,23 @@ TEST(TextClassificationModelTest, SuggestSelectionsAreSymmetric) {
                                     {16, 22}));
 }
 
+TEST(TextClassificationModelTest, SuggestSelectionWithNewLine) {
+  const std::string model_path = GetModelPath();
+  int fd = open(model_path.c_str(), O_RDONLY);
+  std::unique_ptr<TextClassificationModel> model(
+      new TextClassificationModel(fd));
+  close(fd);
+
+  std::tuple<int, int> selection;
+  selection = model->SuggestSelection("abc\nBarack Obama", {4, 10});
+  EXPECT_EQ(4, std::get<0>(selection));
+  EXPECT_EQ(16, std::get<1>(selection));
+
+  selection = model->SuggestSelection("Barack Obama\nabc", {0, 6});
+  EXPECT_EQ(0, std::get<0>(selection));
+  EXPECT_EQ(12, std::get<1>(selection));
+}
+
 TEST(TextClassificationModelTest, SuggestSelectionWithPunctuation) {
   const std::string model_path = GetModelPath();
   int fd = open(model_path.c_str(), O_RDONLY);

@@ -42,18 +42,16 @@ class EmbeddingNetworkParamsFromImage : public EmbeddingNetworkParams {
     embeddings_blob_offset_ = 0;
 
     hidden_blob_offset_ = embeddings_blob_offset_ + embeddings_size();
-    if (trimmed_proto_.embeddings(0).is_quantized()) {
+    if (trimmed_proto_.embeddings_size() &&
+        trimmed_proto_.embeddings(0).is_quantized()) {
       // Adjust for quantization: each quantized matrix takes two blobs (instead
       // of one): one for the quantized values and one for the scales.
       hidden_blob_offset_ += embeddings_size();
     }
 
-    hidden_bias_blob_offset_ =
-        hidden_blob_offset_ + hidden_size();
-    softmax_blob_offset_ =
-        hidden_bias_blob_offset_ + hidden_bias_size();
-    softmax_bias_blob_offset_ =
-        softmax_blob_offset_ + softmax_size();
+    hidden_bias_blob_offset_ = hidden_blob_offset_ + hidden_size();
+    softmax_blob_offset_ = hidden_bias_blob_offset_ + hidden_bias_size();
+    softmax_bias_blob_offset_ = softmax_blob_offset_ + softmax_size();
   }
 
   ~EmbeddingNetworkParamsFromImage() override {}
@@ -84,10 +82,9 @@ class EmbeddingNetworkParamsFromImage : public EmbeddingNetworkParams {
 
   const void *embeddings_weights(int i) const override {
     TC_DCHECK(InRange(i, embeddings_size()));
-    int blob_index =
-        trimmed_proto_.embeddings(i).is_quantized()
-        ? (embeddings_blob_offset_ + 2 * i)
-        : (embeddings_blob_offset_ + i);
+    const int blob_index = trimmed_proto_.embeddings(i).is_quantized()
+                               ? (embeddings_blob_offset_ + 2 * i)
+                               : (embeddings_blob_offset_ + i);
     DataBlobView data_blob_view = memory_reader_.data_blob_view(blob_index);
     return data_blob_view.data();
   }
@@ -115,9 +112,7 @@ class EmbeddingNetworkParamsFromImage : public EmbeddingNetworkParams {
     }
   }
 
-  int hidden_size() const override {
-    return trimmed_proto_.hidden_size();
-  }
+  int hidden_size() const override { return trimmed_proto_.hidden_size(); }
 
   int hidden_num_rows(int i) const override {
     TC_DCHECK(InRange(i, hidden_size()));
@@ -131,8 +126,8 @@ class EmbeddingNetworkParamsFromImage : public EmbeddingNetworkParams {
 
   const void *hidden_weights(int i) const override {
     TC_DCHECK(InRange(i, hidden_size()));
-    DataBlobView data_blob_view = memory_reader_.data_blob_view(
-        hidden_blob_offset_ + i);
+    DataBlobView data_blob_view =
+        memory_reader_.data_blob_view(hidden_blob_offset_ + i);
     return data_blob_view.data();
   }
 
@@ -152,8 +147,8 @@ class EmbeddingNetworkParamsFromImage : public EmbeddingNetworkParams {
 
   const void *hidden_bias_weights(int i) const override {
     TC_DCHECK(InRange(i, hidden_bias_size()));
-    DataBlobView data_blob_view = memory_reader_.data_blob_view(
-        hidden_bias_blob_offset_ + i);
+    DataBlobView data_blob_view =
+        memory_reader_.data_blob_view(hidden_bias_blob_offset_ + i);
     return data_blob_view.data();
   }
 
@@ -173,8 +168,8 @@ class EmbeddingNetworkParamsFromImage : public EmbeddingNetworkParams {
 
   const void *softmax_weights(int i) const override {
     TC_DCHECK(InRange(i, softmax_size()));
-    DataBlobView data_blob_view = memory_reader_.data_blob_view(
-        softmax_blob_offset_ + i);
+    DataBlobView data_blob_view =
+        memory_reader_.data_blob_view(softmax_blob_offset_ + i);
     return data_blob_view.data();
   }
 
@@ -194,8 +189,8 @@ class EmbeddingNetworkParamsFromImage : public EmbeddingNetworkParams {
 
   const void *softmax_bias_weights(int i) const override {
     TC_DCHECK(InRange(i, softmax_bias_size()));
-    DataBlobView data_blob_view = memory_reader_.data_blob_view(
-        softmax_bias_blob_offset_ + i);
+    DataBlobView data_blob_view =
+        memory_reader_.data_blob_view(softmax_bias_blob_offset_ + i);
     return data_blob_view.data();
   }
 

@@ -356,7 +356,7 @@ class FeatureFunction
   }
 
   // Returns the name of the registry for the feature function.
-  const char *RegistryName() const override { return Self::registry()->name; }
+  const char *RegistryName() const override { return Self::registry()->name(); }
 
  private:
   // Special feature function class for resolving variable references. The type
