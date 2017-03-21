@@ -28,7 +28,8 @@ MY_LIBTEXTCLASSIFIER_CFLAGS := \
     -Wno-sign-compare \
     -Wno-missing-field-initializers \
     -Wno-ignored-qualifiers \
-    -Wno-undefined-var-template
+    -Wno-undefined-var-template \
+    -fvisibility=hidden
 
 # ------------------------
 # libtextclassifier_protos
