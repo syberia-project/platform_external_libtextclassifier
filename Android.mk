@@ -64,8 +64,9 @@ LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
 LOCAL_C_INCLUDES += .
 LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 
-LOCAL_SHARED_LIBRARIES := libprotobuf-cpp-lite
-LOCAL_STATIC_LIBRARIES := libtextclassifier_protos
+LOCAL_STATIC_LIBRARIES += libtextclassifier_protos
+LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
+LOCAL_SHARED_LIBRARIES += liblog
 LOCAL_REQUIRED_MODULES := textclassifier.langid.model
 LOCAL_REQUIRED_MODULES += textclassifier.smartselection.en.model
 
@@ -94,8 +95,9 @@ LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
 LOCAL_C_INCLUDES += .
 LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 
-LOCAL_STATIC_LIBRARIES := libtextclassifier_protos libgmock
-LOCAL_SHARED_LIBRARIES := libprotobuf-cpp-lite
+LOCAL_STATIC_LIBRARIES += libtextclassifier_protos libgmock
+LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
+LOCAL_SHARED_LIBRARIES += liblog
 
 include $(BUILD_NATIVE_TEST)
 
@@ -124,4 +126,3 @@ LOCAL_MODULE_OWNER := google
 LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.en.model
 LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
 include $(BUILD_PREBUILT)
-
