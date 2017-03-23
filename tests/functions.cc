@@ -14,28 +14,16 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_LANG_ID_LIGHT_SENTENCE_FEATURES_H_
-#define LIBTEXTCLASSIFIER_LANG_ID_LIGHT_SENTENCE_FEATURES_H_
+#include "tests/functions.h"
 
-#include "common/feature-extractor.h"
-#include "lang_id/light-sentence.h"
+#include "common/registry.h"
 
 namespace libtextclassifier {
 namespace nlp_core {
-namespace lang_id {
 
-// Feature function that extracts features from LightSentences.
-typedef FeatureFunction<LightSentence> LightSentenceFeature;
+TC_DEFINE_CLASS_REGISTRY_NAME("function", functions::Function);
 
-// Feature extractor for LightSentences.
-typedef FeatureExtractor<LightSentence> LightSentenceExtractor;
-
-}  // namespace lang_id
-
-// Should be used in namespace libtextclassifier::nlp_core.
-TC_DECLARE_CLASS_REGISTRY_NAME(lang_id::LightSentenceFeature);
+TC_DEFINE_CLASS_REGISTRY_NAME("int-function", functions::IntFunction);
 
 }  // namespace nlp_core
 }  // namespace libtextclassifier
-
-#endif  // LIBTEXTCLASSIFIER_LANG_ID_LIGHT_SENTENCE_FEATURES_H_

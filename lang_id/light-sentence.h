@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_LANG_ID_LIGH_SENTENCE_H_
-#define LIBTEXTCLASSIFIER_LANG_ID_LIGH_SENTENCE_H_
+#ifndef LIBTEXTCLASSIFIER_LANG_ID_LIGHT_SENTENCE_H_
+#define LIBTEXTCLASSIFIER_LANG_ID_LIGHT_SENTENCE_H_
 
 #include <string>
 #include <vector>
@@ -63,4 +63,4 @@ class LightSentence {
 }  // namespace nlp_core
 }  // namespace libtextclassifier
 
-#endif  // LIBTEXTCLASSIFIER_LANG_ID_LIGH_SENTENCE_H_
+#endif  // LIBTEXTCLASSIFIER_LANG_ID_LIGHT_SENTENCE_H_

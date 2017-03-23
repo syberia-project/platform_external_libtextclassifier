@@ -126,4 +126,4 @@ struct SelectionWithContext {
 
 }  // namespace libtextclassifier
 
-#endif  // LIBTEXTCLASSIFIER_TYPES_H_
+#endif  // LIBTEXTCLASSIFIER_SMARTSELECT_TYPES_H_

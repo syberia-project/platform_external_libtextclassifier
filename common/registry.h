@@ -28,8 +28,12 @@
 //  // Abstract function that takes a double and returns a double.
 //  class Function : public RegisterableClass<Function> {
 //   public:
+//    virtual ~Function() {}
 //    virtual double Evaluate(double x) = 0;
 //  };
+//
+//  // Should be inside namespace libtextclassifier::nlp_core.
+//  TC_DECLARE_CLASS_REGISTRY_NAME(Function);
 //
 // Notice the inheritance from RegisterableClass<Function>.  RegisterableClass
 // is defined by this file (registry.h).  Under the hood, this inheritanace
@@ -39,26 +43,27 @@
 // to be a .cc file, as it defines some static data):
 //
 //  // Inside function.cc
+//  // Should be inside namespace libtextclassifier::nlp_core.
 //  TC_DEFINE_CLASS_REGISTRY_NAME("function", Function);
 //
 // Now, let's define a few concrete Functions: e.g.,
 //
 //   class Cos : public Function {
 //    public:
-//     double Evaluate(double x) { return cos(x); }
+//     double Evaluate(double x) override { return cos(x); }
 //     TC_DEFINE_REGISTRATION_METHOD("cos", Cos);
 //   };
 //
 //   class Exp : public Function {
 //    public:
-//     double Evaluate(double x) { return exp(x); }
+//     double Evaluate(double x) override { return exp(x); }
 //     TC_DEFINE_REGISTRATION_METHOD("sin", Sin);
 //   };
 //
 // Each concrete Function implementation should have (in the public section) the
 // macro
 //
-//   TC_DEFINE_REGISTRATION_METHOD(base_class, "name", implementation_class);
+//   TC_DEFINE_REGISTRATION_METHOD("name", implementation_class);
 //
 // This defines a RegisterClass static method that, when invoked, associates
 // "name" with a factory method that creates instances of implementation_class.
@@ -76,22 +81,25 @@
 // interesting if the Function name is not statically known (i.e.,
 // read from an input proto:
 //
-//   std::unique_ptr<Function> f.reset(Function::Create("cos"));
+//   std::unique_ptr<Function> f(Function::Create("cos"));
 //   double result = f->Evaluate(arg);
 //
 // NOTE: the same binary can use this mechanism for different APIs.  E.g., one
 // can also have (in the binary with Function, Sin, Cos, etc):
 //
-// class IntFunction : RegisterableClass<IntFunction> {
+// class IntFunction : public RegisterableClass<IntFunction> {
 //  public:
+//   virtual ~IntFunction() {}
 //   virtual int Evaluate(int k) = 0;
 // };
+//
+// TC_DECLARE_CLASS_REGISTRY_NAME(IntFunction);
 //
 // TC_DEFINE_CLASS_REGISTRY_NAME("int function", IntFunction);
 //
 // class Inc : public IntFunction {
 //  public:
-//   int Evaluate(int k) { return k + 1; }
+//   int Evaluate(int k) override { return k + 1; }
 //   TC_DEFINE_REGISTRATION_METHOD("inc", Inc);
 // };
 //
@@ -257,6 +265,12 @@ class RegisterableClass {
     }                                                                   \
     TC_DCHECK(once);                                                    \
   }
+
+// Defines the human-readable name of the registry associated with base_class.
+#define TC_DECLARE_CLASS_REGISTRY_NAME(base_class)             \
+  template <>                                                  \
+  const char ::libtextclassifier::nlp_core::RegisterableClass< \
+      base_class>::kRegistryName[]
 
 // Defines the human-readable name of the registry associated with base_class.
 #define TC_DEFINE_CLASS_REGISTRY_NAME(registry_name, base_class) \

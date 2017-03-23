@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-// Common utils for memory images.  For more info on memory images, see
-// http://g3doc/common/memory_image/g3doc/index.md
+// Common utils for memory images.
 
 #ifndef LIBTEXTCLASSIFIER_COMMON_MEMORY_IMAGE_MEMORY_IMAGE_COMMON_H_
 #define LIBTEXTCLASSIFIER_COMMON_MEMORY_IMAGE_MEMORY_IMAGE_COMMON_H_

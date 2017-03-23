@@ -257,6 +257,12 @@ TEST(TextClassificationModelTest, ClassifyText) {
   EXPECT_EQ("other", FindBestResult(model->ClassifyText("asdf", {0, 4})));
   EXPECT_EQ("<INVALID RESULTS>",
             FindBestResult(model->ClassifyText("asdf", {0, 0})));
+
+  // Junk.
+  EXPECT_EQ("<INVALID RESULTS>",
+            FindBestResult(model->ClassifyText("", {0, 0})));
+  EXPECT_EQ("<INVALID RESULTS>", FindBestResult(model->ClassifyText(
+                                     "a\n\n\n\nx x x\n\n\n\n\n\n", {1, 5})));
 }
 
 }  // namespace

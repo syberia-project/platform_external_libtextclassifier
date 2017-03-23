@@ -163,6 +163,31 @@ void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
   }
 }
 
+std::vector<Token> FindTokensInSelection(
+    const std::vector<Token>& selectable_tokens,
+    const SelectionWithContext& selection_with_context) {
+  std::vector<Token> tokens_in_selection;
+  for (const Token& token : selectable_tokens) {
+    const bool selection_start_in_token =
+        token.start <= selection_with_context.selection_start &&
+        token.end > selection_with_context.selection_start;
+
+    const bool token_contained_in_selection =
+        token.start >= selection_with_context.selection_start &&
+        token.end < selection_with_context.selection_end;
+
+    const bool selection_end_in_token =
+        token.start < selection_with_context.selection_end &&
+        token.end >= selection_with_context.selection_end;
+
+    if (selection_start_in_token || token_contained_in_selection ||
+        selection_end_in_token) {
+      tokens_in_selection.push_back(token);
+    }
+  }
+  return tokens_in_selection;
+}
+
 }  // namespace internal
 
 const char* const FeatureProcessor::kFeatureTypeName = "chargram_continuous";
@@ -372,36 +397,11 @@ int FeatureProcessor::FindCenterToken(CodepointSpan span,
   }
 }
 
-std::vector<Token> FeatureProcessor::FindTokensInSelection(
-    const std::vector<Token>& selectable_tokens,
-    const SelectionWithContext& selection_with_context) const {
-  std::vector<Token> tokens_in_selection;
-  for (const Token& token : selectable_tokens) {
-    const bool selection_start_in_token =
-        token.start <= selection_with_context.selection_start &&
-        token.end > selection_with_context.selection_start;
-
-    const bool token_contained_in_selection =
-        token.start >= selection_with_context.selection_start &&
-        token.end < selection_with_context.selection_end;
-
-    const bool selection_end_in_token =
-        token.start < selection_with_context.selection_end &&
-        token.end >= selection_with_context.selection_end;
-
-    if (selection_start_in_token || token_contained_in_selection ||
-        selection_end_in_token) {
-      tokens_in_selection.push_back(token);
-    }
-  }
-  return tokens_in_selection;
-}
-
 CodepointSpan FeatureProcessor::ClickRandomTokenInSelection(
     const SelectionWithContext& selection_with_context) const {
   const std::vector<Token> tokens = Tokenize(selection_with_context.context);
   const std::vector<Token> tokens_in_selection =
-      FindTokensInSelection(tokens, selection_with_context);
+      internal::FindTokensInSelection(tokens, selection_with_context);
 
   if (!tokens_in_selection.empty()) {
     std::uniform_int_distribution<> selection_token_draw(

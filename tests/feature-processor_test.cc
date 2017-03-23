@@ -270,12 +270,6 @@ TEST(FeatureProcessorTest, GetFeaturesWithLongerContext) {
   EXPECT_EQ(19, features.size());
 }
 
-class TestingFeatureProcessor : public FeatureProcessor {
- public:
-  using FeatureProcessor::FeatureProcessor;
-  using FeatureProcessor::FindTokensInSelection;
-};
-
 TEST(FeatureProcessorTest, FindTokensInSelectionSingleCharacter) {
   FeatureProcessorOptions options;
   options.set_num_buckets(10);
@@ -288,7 +282,7 @@ TEST(FeatureProcessorTest, FindTokensInSelectionSingleCharacter) {
   config->set_start(32);
   config->set_end(33);
   config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
-  TestingFeatureProcessor feature_processor(options);
+  FeatureProcessor feature_processor(options);
 
   SelectionWithContext selection_with_context;
   selection_with_context.context = "1 2 3 c o n t e x t X c o n t e x t 1 2 3";
@@ -297,7 +291,7 @@ TEST(FeatureProcessorTest, FindTokensInSelectionSingleCharacter) {
   selection_with_context.selection_start = 20;
   selection_with_context.selection_end = 21;
   // clang-format off
-  EXPECT_THAT(feature_processor.FindTokensInSelection(
+  EXPECT_THAT(internal::FindTokensInSelection(
                   feature_processor.Tokenize(selection_with_context.context),
                   selection_with_context),
               ElementsAreArray({Token("X", 20, 21, false)}));
@@ -316,7 +310,7 @@ TEST(FeatureProcessorTest, FindTokensInSelectionInsideTokenBoundary) {
   config->set_start(32);
   config->set_end(33);
   config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
-  TestingFeatureProcessor feature_processor(options);
+  FeatureProcessor feature_processor(options);
 
   SelectionWithContext selection_with_context;
   selection_with_context.context = "I live at 350 Third Street, today.";
@@ -332,7 +326,7 @@ TEST(FeatureProcessorTest, FindTokensInSelectionInsideTokenBoundary) {
   // Selection: I live at {350 Third Str}eet, today.
   selection_with_context.selection_start = 10;
   selection_with_context.selection_end = 23;
-  EXPECT_THAT(feature_processor.FindTokensInSelection(
+  EXPECT_THAT(internal::FindTokensInSelection(
                   feature_processor.Tokenize(selection_with_context.context),
                   selection_with_context),
               ElementsAreArray(expected_selection));
@@ -340,7 +334,7 @@ TEST(FeatureProcessorTest, FindTokensInSelectionInsideTokenBoundary) {
   // Selection: I live at {350 Third Street,} today.
   selection_with_context.selection_start = 10;
   selection_with_context.selection_end = 27;
-  EXPECT_THAT(feature_processor.FindTokensInSelection(
+  EXPECT_THAT(internal::FindTokensInSelection(
                   feature_processor.Tokenize(selection_with_context.context),
                   selection_with_context),
               ElementsAreArray(expected_selection));
@@ -348,7 +342,7 @@ TEST(FeatureProcessorTest, FindTokensInSelectionInsideTokenBoundary) {
   // Selection: I live at {350 Third Street, }today.
   selection_with_context.selection_start = 10;
   selection_with_context.selection_end = 28;
-  EXPECT_THAT(feature_processor.FindTokensInSelection(
+  EXPECT_THAT(internal::FindTokensInSelection(
                   feature_processor.Tokenize(selection_with_context.context),
                   selection_with_context),
               ElementsAreArray(expected_selection));
@@ -356,7 +350,7 @@ TEST(FeatureProcessorTest, FindTokensInSelectionInsideTokenBoundary) {
   // Selection: I live at {350 Third S}treet, today.
   selection_with_context.selection_start = 10;
   selection_with_context.selection_end = 21;
-  EXPECT_THAT(feature_processor.FindTokensInSelection(
+  EXPECT_THAT(internal::FindTokensInSelection(
                   feature_processor.Tokenize(selection_with_context.context),
                   selection_with_context),
               ElementsAreArray(expected_selection));
@@ -366,7 +360,7 @@ TEST(FeatureProcessorTest, FindTokensInSelectionInsideTokenBoundary) {
   // Selection: I live at {350 Third} Street, today.
   selection_with_context.selection_start = 10;
   selection_with_context.selection_end = 19;
-  EXPECT_THAT(feature_processor.FindTokensInSelection(
+  EXPECT_THAT(internal::FindTokensInSelection(
                   feature_processor.Tokenize(selection_with_context.context),
                   selection_with_context),
               ElementsAreArray({
@@ -380,7 +374,7 @@ TEST(FeatureProcessorTest, FindTokensInSelectionInsideTokenBoundary) {
   selection_with_context.selection_start = 10;
   selection_with_context.selection_end = 29;
   EXPECT_THAT(
-      feature_processor.FindTokensInSelection(
+      internal::FindTokensInSelection(
           feature_processor.Tokenize(selection_with_context.context),
           selection_with_context),
       ElementsAreArray({
@@ -453,6 +447,46 @@ TEST(FeatureProcessorTest, CenterTokenFromMiddleOfSelection) {
                  Token("Token3", 14, 20, false), Token("Token4", 21, 27, false),
                  Token("Token5", 28, 34, false)});
   EXPECT_EQ(token_index, 4);
+
+  // Some invalid ones.
+  token_index = internal::CenterTokenFromMiddleOfSelection({7, 27}, {});
+  EXPECT_EQ(token_index, -1);
+}
+
+TEST(FeatureProcessorTest, GetFeaturesForSharing) {
+  FeatureProcessorOptions options;
+  options.set_num_buckets(10);
+  options.set_context_size(9);
+  options.set_max_selection_span(7);
+  options.add_chargram_orders(1);
+  options.set_tokenize_on_space(true);
+  options.set_center_token_selection_method(
+      FeatureProcessorOptions::CENTER_TOKEN_MIDDLE_OF_SELECTION);
+  options.set_only_use_line_with_click(true);
+  options.set_split_tokens_on_selection_boundaries(true);
+  options.set_extract_selection_mask_feature(true);
+  TokenizationCodepointRange* config =
+      options.add_tokenization_codepoint_config();
+  config->set_start(32);
+  config->set_end(33);
+  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
+  config = options.add_tokenization_codepoint_config();
+  config->set_start(10);
+  config->set_end(11);
+  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
+  FeatureProcessor feature_processor(options);
+
+  std::vector<std::vector<std::pair<int, float>>> features;
+  std::vector<float> extra_features;
+  std::vector<CodepointSpan> selection_label_spans;
+  int selection_label;
+  CodepointSpan selection_codepoint_label;
+  int classification_label;
+  EXPECT_TRUE(feature_processor.GetFeaturesAndLabels(
+      "line 1\nline2\nsome entity\n line 4", {13, 24}, {13, 24}, "", &features,
+      &extra_features, &selection_label_spans, &selection_label,
+      &selection_codepoint_label, &classification_label));
+  EXPECT_EQ(19, features.size());
 }
 
 }  // namespace

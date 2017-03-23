@@ -13,9 +13,6 @@
 // limitations under the License.
 
 // Protos for "memory images".
-//
-// For info on memory images, see
-// http://g3doc/nlp/saft/components/common/mobile/memory_image/g3doc/index.md
 
 syntax = "proto2";
 option optimize_for = LITE_RUNTIME;

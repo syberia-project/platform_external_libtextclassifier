@@ -61,6 +61,12 @@ int CenterTokenFromClick(CodepointSpan span, const std::vector<Token>& tokens);
 int CenterTokenFromMiddleOfSelection(
     CodepointSpan span, const std::vector<Token>& selectable_tokens);
 
+// Finds tokens that are part of the selection.
+// NOTE: Will select all tokens that somehow overlap with the selection.
+std::vector<Token> FindTokensInSelection(
+    const std::vector<Token>& selectable_tokens,
+    const SelectionWithContext& selection_with_context);
+
 }  // namespace internal
 
 TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
@@ -185,12 +191,6 @@ class FeatureProcessor {
 
   // Converts a token span to the corresponding label.
   int TokenSpanToLabel(const std::pair<TokenIndex, TokenIndex>& span) const;
-
-  // Finds tokens that are part of the selection.
-  // NOTE: Will select all tokens that somehow overlap with the selection.
-  std::vector<Token> FindTokensInSelection(
-      const std::vector<Token>& selectable_tokens,
-      const SelectionWithContext& selection_with_context) const;
 
   // Finds the center token index in tokens vector, using the method defined
   // in options_.

@@ -30,8 +30,7 @@ namespace nlp_core {
 //
 // In this context, a memory image is like an EmbeddingNetworkProto, but with
 // all repeated weights (>99% of the size) directly usable (with no parsing
-// required).  For general info on memory images, see
-// http://g3doc/nlp/saft/components/common/mobile/memory_image/g3doc/index.md
+// required).
 class EmbeddingNetworkParamsFromImage : public EmbeddingNetworkParams {
  public:
   // Constructs an EmbeddingNetworkParamsFromImage, using the memory image that
