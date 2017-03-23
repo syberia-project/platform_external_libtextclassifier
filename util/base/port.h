@@ -28,12 +28,16 @@ namespace libtextclassifier {
 // Introduced in gcc 3.1.
 #define TC_ATTRIBUTE_ALWAYS_INLINE __attribute__((always_inline))
 
+// For functions we don't want to inline, e.g., to keep code size small.
+#define TC_ATTRIBUTE_NOINLINE __attribute__((noinline))
+
 #elif defined(_MSC_VER)
 #define TC_ATTRIBUTE_ALWAYS_INLINE __forceinline
 #else
 
 // Other compilers will have to figure it out for themselves.
 #define TC_ATTRIBUTE_ALWAYS_INLINE
+#define TC_ATTRIBUTE_NOINLINE
 #endif
 
 }  // namespace libtextclassifier

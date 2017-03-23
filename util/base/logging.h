@@ -18,35 +18,46 @@
 #define LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_H_
 
 #include <cassert>
-#include <iostream>
+#include <sstream>
 #include <string>
+
+#include "util/base/logging_levels.h"
+#include "util/base/port.h"
 
 namespace libtextclassifier {
 namespace logging {
 
+// The class that does all the work behind our TC_LOG(severity) macros.  Each
+// TC_LOG(severity) << obj1 << obj2 << ...; logging statement creates a
+// LogMessage temporary object containing a stringstream.  Each operator<< adds
+// info to that stringstream and the LogMessage destructor performs the actual
+// logging.  The reason this works is that in C++, "all temporary objects are
+// destroyed as the last step in evaluating the full-expression that (lexically)
+// contains the point where they were created."  For more info, see
+// http://en.cppreference.com/w/cpp/language/lifetime.  Hence, the destructor is
+// invoked after the last << from that logging statement.
 class LogMessage {
  public:
-  explicit LogMessage(const std::string &type, const char *file_name,
-                      int line_number)
-      : fatal_(type == "FATAL") {
-    std::cerr << type << " " << file_name << ":" << line_number << ": ";
-  }
+  LogMessage(LogSeverity severity, const char *file_name,
+             int line_number) TC_ATTRIBUTE_NOINLINE;
 
-  ~LogMessage() {
-    std::cerr << std::endl;
-    if (fatal_) {
-      exit(1);
-    }
-  }
+  ~LogMessage() TC_ATTRIBUTE_NOINLINE;
 
-  std::ostream &stream() { return std::cerr; }
+  // Returns the stream associated with the logger object.
+  std::stringstream &stream() { return stream_; }
 
  private:
-  const bool fatal_;
+  const LogSeverity severity_;
+
+  // Stream that "prints" all info into a string (not to a file).  We construct
+  // here the entire logging message and next print it in one operation.
+  std::stringstream stream_;
 };
 
-#define TC_LOG(type) \
-  ::libtextclassifier::logging::LogMessage(#type, __FILE__, __LINE__).stream()
+#define TC_LOG(severity)                                          \
+  ::libtextclassifier::logging::LogMessage(                       \
+      ::libtextclassifier::logging::severity, __FILE__, __LINE__) \
+      .stream()
 
 // If condition x is true, does nothing.  Otherwise, crashes the program (liek
 // LOG(FATAL)) with an informative message.  Can be continued with extra
