@@ -121,6 +121,10 @@ message FeatureProcessorOptions {
 
   // If true, during training will click random token in the example selection.
   optional bool click_random_token_in_selection = 17 [default = true];
+
+  // If true, span boundaries will be snapped to containing tokens and not
+  // required to exactly match token boundaries.
+  optional bool snap_label_span_boundaries_to_containing_tokens = 18;
 };
 
 extend nlp_core.EmbeddingNetworkProto {
