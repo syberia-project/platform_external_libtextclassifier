@@ -70,6 +70,8 @@ LOCAL_SHARED_LIBRARIES += liblog
 LOCAL_REQUIRED_MODULES := textclassifier.langid.model
 LOCAL_REQUIRED_MODULES += textclassifier.smartselection.en.model
 
+LOCAL_LDFLAGS += -Wl,-version-script=external/libtextclassifier/jni.lds
+
 include $(BUILD_SHARED_LIBRARY)
 
 # -----------------------
