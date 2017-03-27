@@ -197,6 +197,75 @@ TEST(FeatureProcessorTest, KeepLineWithCrosslineClick) {
                            Token("Thiřd", 23, 28), Token("Lině", 29, 33)}));
 }
 
+class TestingFeatureProcessor : public FeatureProcessor {
+ public:
+  using FeatureProcessor::FeatureProcessor;
+  using FeatureProcessor::SpanToLabel;
+};
+
+TEST(FeatureProcessorTest, SpanToLabel) {
+  FeatureProcessorOptions options;
+  options.set_context_size(1);
+  options.set_max_selection_span(1);
+  options.set_tokenize_on_space(true);
+  options.set_snap_label_span_boundaries_to_containing_tokens(false);
+
+  TokenizationCodepointRange* config =
+      options.add_tokenization_codepoint_config();
+  config->set_start(32);
+  config->set_end(33);
+  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
+
+  TestingFeatureProcessor feature_processor(options);
+  std::vector<Token> tokens = feature_processor.Tokenize("one, two, three");
+  ASSERT_EQ(3, tokens.size());
+  int label;
+  ASSERT_TRUE(feature_processor.SpanToLabel({5, 8}, tokens, &label));
+  EXPECT_EQ(kInvalidLabel, label);
+  ASSERT_TRUE(feature_processor.SpanToLabel({5, 9}, tokens, &label));
+  EXPECT_NE(kInvalidLabel, label);
+  TokenSpan token_span;
+  feature_processor.LabelToTokenSpan(label, &token_span);
+  EXPECT_EQ(0, token_span.first);
+  EXPECT_EQ(0, token_span.second);
+
+  // Reconfigure with snapping enabled.
+  options.set_snap_label_span_boundaries_to_containing_tokens(true);
+  TestingFeatureProcessor feature_processor2(options);
+  int label2;
+  ASSERT_TRUE(feature_processor2.SpanToLabel({5, 8}, tokens, &label2));
+  EXPECT_EQ(label, label2);
+  ASSERT_TRUE(feature_processor2.SpanToLabel({6, 9}, tokens, &label2));
+  EXPECT_EQ(label, label2);
+  ASSERT_TRUE(feature_processor2.SpanToLabel({5, 9}, tokens, &label2));
+  EXPECT_EQ(label, label2);
+
+  // Cross a token boundary.
+  ASSERT_TRUE(feature_processor2.SpanToLabel({4, 9}, tokens, &label2));
+  EXPECT_EQ(kInvalidLabel, label2);
+  ASSERT_TRUE(feature_processor2.SpanToLabel({5, 10}, tokens, &label2));
+  EXPECT_EQ(kInvalidLabel, label2);
+
+  // Multiple tokens.
+  options.set_context_size(2);
+  options.set_max_selection_span(2);
+  TestingFeatureProcessor feature_processor3(options);
+  tokens = feature_processor3.Tokenize("zero, one, two, three, four");
+  ASSERT_TRUE(feature_processor3.SpanToLabel({6, 15}, tokens, &label2));
+  EXPECT_NE(kInvalidLabel, label2);
+  feature_processor3.LabelToTokenSpan(label2, &token_span);
+  EXPECT_EQ(1, token_span.first);
+  EXPECT_EQ(0, token_span.second);
+
+  int label3;
+  ASSERT_TRUE(feature_processor3.SpanToLabel({6, 14}, tokens, &label3));
+  EXPECT_EQ(label2, label3);
+  ASSERT_TRUE(feature_processor3.SpanToLabel({6, 13}, tokens, &label3));
+  EXPECT_EQ(label2, label3);
+  ASSERT_TRUE(feature_processor3.SpanToLabel({7, 13}, tokens, &label3));
+  EXPECT_EQ(label2, label3);
+}
+
 TEST(FeatureProcessorTest, GetFeaturesWithContextDropout) {
   FeatureProcessorOptions options;
   options.set_num_buckets(10);

@@ -248,7 +248,7 @@ bool FeatureProcessor::SpanToLabel(
 
   int span_left = 0;
   for (int i = click_position - 1; i >= padding; i--) {
-    if (tokens[i].start != kInvalidIndex && tokens[i].start >= span.first) {
+    if (tokens[i].start != kInvalidIndex && tokens[i].end > span.first) {
       ++span_left;
     } else {
       break;
@@ -257,7 +257,7 @@ bool FeatureProcessor::SpanToLabel(
 
   int span_right = 0;
   for (int i = click_position + 1; i < tokens.size() - padding; ++i) {
-    if (tokens[i].end != kInvalidIndex && tokens[i].end <= span.second) {
+    if (tokens[i].end != kInvalidIndex && tokens[i].start < span.second) {
       ++span_right;
     } else {
       break;
@@ -265,8 +265,18 @@ bool FeatureProcessor::SpanToLabel(
   }
 
   // Check that the spanned tokens cover the whole span.
-  if (tokens[click_position - span_left].start == span.first &&
-      tokens[click_position + span_right].end == span.second) {
+  bool tokens_match_span;
+  if (options_.snap_label_span_boundaries_to_containing_tokens()) {
+    tokens_match_span =
+        tokens[click_position - span_left].start <= span.first &&
+        tokens[click_position + span_right].end >= span.second;
+  } else {
+    tokens_match_span =
+        tokens[click_position - span_left].start == span.first &&
+        tokens[click_position + span_right].end == span.second;
+  }
+
+  if (tokens_match_span) {
     *label = TokenSpanToLabel({span_left, span_right});
   } else {
     *label = kInvalidLabel;
