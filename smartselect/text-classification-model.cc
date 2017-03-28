@@ -293,6 +293,7 @@ CodepointSpan TextClassificationModel::SuggestSelectionSymmetrical(
   return {click_indices.first, click_indices.second};
 }
 
+// TODO(zilka): Move this function to EvalTextClassificationModel.
 CodepointSpan TextClassificationModel::SuggestSelection(
     const SelectionWithContext& selection_with_context) const {
   CodepointSpan click_indices = {selection_with_context.click_start,
@@ -309,7 +310,8 @@ CodepointSpan TextClassificationModel::SuggestSelection(
 
 std::vector<std::pair<std::string, float>>
 TextClassificationModel::ClassifyText(const std::string& context,
-                                      CodepointSpan selection_indices) const {
+                                      CodepointSpan selection_indices,
+                                      int hint_flags) const {
   if (!initialized_) {
     TC_LOG(ERROR) << "Not initialized";
     return {};

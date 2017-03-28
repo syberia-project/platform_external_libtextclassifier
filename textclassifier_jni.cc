@@ -40,7 +40,7 @@ Java_android_view_textclassifier_SmartSelection_nativeSuggest(
 JNIEXPORT jobjectArray JNICALL
 Java_android_view_textclassifier_SmartSelection_nativeClassifyText(
     JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
-    jint selection_end);
+    jint selection_end, jint input_flags);
 
 JNIEXPORT void JNICALL
 Java_android_view_textclassifier_SmartSelection_nativeClose(JNIEnv* env,
@@ -128,12 +128,12 @@ Java_android_view_textclassifier_SmartSelection_nativeSuggest(
 JNIEXPORT jobjectArray JNICALL
 Java_android_view_textclassifier_SmartSelection_nativeClassifyText(
     JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
-    jint selection_end) {
+    jint selection_end, jint input_flags) {
   TextClassificationModel* ff_model =
       reinterpret_cast<TextClassificationModel*>(ptr);
   const std::vector<std::pair<std::string, float>> classification_result =
       ff_model->ClassifyText(ToStlString(env, context),
-                             {selection_begin, selection_end});
+                             {selection_begin, selection_end}, input_flags);
 
   return ScoredStringsToJObjectArray(
       env, "android/view/textclassifier/SmartSelection$ClassificationResult",
