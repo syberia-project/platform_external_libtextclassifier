@@ -41,6 +41,9 @@ class TextClassificationModel {
   // file descriptor.
   explicit TextClassificationModel(int fd);
 
+  // Bit flags for the input selection.
+  enum SelectionInputFlags { SELECTION_IS_URL = 0x1, SELECTION_IS_EMAIL = 0x2 };
+
   // Runs inference for given a context and current selection (i.e. index
   // of the first and one past last selected characters (utf8 codepoint
   // offsets)). Returns the indices (utf8 codepoint offsets) of the selection
@@ -61,7 +64,8 @@ class TextClassificationModel {
   // Requires that the model is a smart sharing model.
   // Returns an empty result if an error occurs.
   std::vector<std::pair<std::string, float>> ClassifyText(
-      const std::string& context, CodepointSpan click_indices) const;
+      const std::string& context, CodepointSpan click_indices,
+      int input_flags = 0) const;
 
  protected:
   // Removes punctuation from the beginning and end of the selection and returns
