@@ -76,6 +76,8 @@ TextClassificationModel::TextClassificationModel(int fd) {
   for (const int codepoint : selection_options_.punctuation_to_strip()) {
     punctuation_to_strip_.insert(codepoint);
   }
+
+  sharing_options_ = selection_params_->GetSharingModelOptions();
 }
 
 bool TextClassificationModel::LoadModels(int fd) {
@@ -315,6 +317,16 @@ TextClassificationModel::ClassifyText(const std::string& context,
   if (!initialized_) {
     TC_LOG(ERROR) << "Not initialized";
     return {};
+  }
+
+  if (hint_flags & SELECTION_IS_URL &&
+      sharing_options_.always_accept_url_hint()) {
+    return {{kUrlHintCollection, 1.0}};
+  }
+
+  if (hint_flags & SELECTION_IS_EMAIL &&
+      sharing_options_.always_accept_email_hint()) {
+    return {{kEmailHintCollection, 1.0}};
   }
 
   EmbeddingNetwork::Vector scores =

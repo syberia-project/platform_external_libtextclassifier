@@ -78,6 +78,10 @@ class ModelParams : public nlp_core::EmbeddingNetworkParamsFromImage {
     return selection_options_;
   }
 
+  const SharingModelOptions& GetSharingModelOptions() const {
+    return sharing_options_;
+  }
+
   std::shared_ptr<EmbeddingParams> GetEmbeddingParams() const {
     return embedding_params_;
   }
@@ -123,14 +127,17 @@ class ModelParams : public nlp_core::EmbeddingNetworkParamsFromImage {
   ModelParams(const void* start, uint64 num_bytes,
               std::shared_ptr<EmbeddingParams> embedding_params,
               const SelectionModelOptions& selection_options,
+              const SharingModelOptions& sharing_options,
               const FeatureProcessorOptions& feature_processor_options)
       : EmbeddingNetworkParamsFromImage(start, num_bytes),
         selection_options_(selection_options),
+        sharing_options_(sharing_options),
         feature_processor_options_(feature_processor_options),
         context_size_(feature_processor_options_.context_size()),
         embedding_params_(std::move(embedding_params)) {}
 
   SelectionModelOptions selection_options_;
+  SharingModelOptions sharing_options_;
   FeatureProcessorOptions feature_processor_options_;
   int context_size_;
   std::shared_ptr<EmbeddingParams> embedding_params_;
