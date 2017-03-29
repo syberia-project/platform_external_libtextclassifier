@@ -133,6 +133,11 @@ class TestingTextClassificationModel
                                      const std::string& context) const {
     return StripPunctuation(selection, context);
   }
+
+  void DisableClassificationHints() {
+    sharing_options_.set_always_accept_url_hint(false);
+    sharing_options_.set_always_accept_email_hint(false);
+  }
 };
 
 TEST(TextClassificationModelTest, StripPunctuation) {
@@ -219,10 +224,11 @@ std::string FindBestResult(std::vector<std::pair<std::string, float>> results) {
 TEST(TextClassificationModelTest, ClassifyText) {
   const std::string model_path = GetModelPath();
   int fd = open(model_path.c_str(), O_RDONLY);
-  std::unique_ptr<TextClassificationModel> model(
-      new TextClassificationModel(fd));
+  std::unique_ptr<TestingTextClassificationModel> model(
+      new TestingTextClassificationModel(fd));
   close(fd);
 
+  model->DisableClassificationHints();
   EXPECT_EQ("other",
             FindBestResult(model->ClassifyText(
                 "this afternoon Barack Obama gave a speech at", {15, 27})));
@@ -263,6 +269,40 @@ TEST(TextClassificationModelTest, ClassifyText) {
             FindBestResult(model->ClassifyText("", {0, 0})));
   EXPECT_EQ("<INVALID RESULTS>", FindBestResult(model->ClassifyText(
                                      "a\n\n\n\nx x x\n\n\n\n\n\n", {1, 5})));
+}
+
+TEST(TextClassificationModelTest, ClassifyTextWithHints) {
+  const std::string model_path = GetModelPath();
+  int fd = open(model_path.c_str(), O_RDONLY);
+  std::unique_ptr<TestingTextClassificationModel> model(
+      new TestingTextClassificationModel(fd));
+  close(fd);
+
+  // When EMAIL hint is passed, the result should be email.
+  EXPECT_EQ("email",
+            FindBestResult(model->ClassifyText(
+                "x", {0, 1}, TextClassificationModel::SELECTION_IS_EMAIL)));
+  // When URL hint is passed, the result should be email.
+  EXPECT_EQ("url",
+            FindBestResult(model->ClassifyText(
+                "x", {0, 1}, TextClassificationModel::SELECTION_IS_URL)));
+  // When both hints are passed, the result should be url (as it's probably
+  // better to let Chrome handle this case).
+  EXPECT_EQ("url", FindBestResult(model->ClassifyText(
+                       "x", {0, 1},
+                       TextClassificationModel::SELECTION_IS_EMAIL |
+                           TextClassificationModel::SELECTION_IS_URL)));
+
+  // With disabled hints, we should get the same prediction regardless of the
+  // hint.
+  model->DisableClassificationHints();
+  EXPECT_EQ(model->ClassifyText("x", {0, 1}, 0),
+            model->ClassifyText("x", {0, 1},
+                                TextClassificationModel::SELECTION_IS_EMAIL));
+
+  EXPECT_EQ(model->ClassifyText("x", {0, 1}, 0),
+            model->ClassifyText("x", {0, 1},
+                                TextClassificationModel::SELECTION_IS_URL));
 }
 
 }  // namespace

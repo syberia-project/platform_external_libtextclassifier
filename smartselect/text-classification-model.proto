@@ -44,6 +44,14 @@ message SelectionModelOptions {
   optional int32 symmetry_context_size = 4;
 }
 
+message SharingModelOptions {
+  // If true, will always return "url" when the url hint is passed in.
+  optional bool always_accept_url_hint = 1;
+
+  // If true, will always return "email" when the e-mail hint is passed in.
+  optional bool always_accept_email_hint = 2;
+}
+
 message FeatureProcessorOptions {
   // Number of buckets used for hashing charactergrams.
   optional int32 num_buckets = 1 [default = -1];
@@ -133,4 +141,6 @@ extend nlp_core.EmbeddingNetworkProto {
       feature_processor_options_in_embedding_network_proto = 146230910;
   optional SelectionModelOptions
       selection_model_options_in_embedding_network_proto = 148190899;
+  optional SharingModelOptions
+      sharing_model_options_in_embedding_network_proto = 151445439;
 }
