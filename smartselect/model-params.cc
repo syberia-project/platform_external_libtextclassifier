@@ -68,8 +68,7 @@ ModelParams* ModelParamsBuilder(
     selection_options =
         reader.trimmed_proto().GetExtension(selection_options_extension_id);
   } else {
-    // TODO(zilka): Remove this once we added the model options to the exported
-    // models.
+    // Default values when SelectionModelOptions is not present.
     for (const auto codepoint_pair : std::vector<std::pair<int, int>>(
              {{33, 35},       {37, 39},       {42, 42},       {44, 47},
               {58, 59},       {63, 64},       {91, 93},       {95, 95},
@@ -106,15 +105,28 @@ ModelParams* ModelParamsBuilder(
     }
   }
 
+  SharingModelOptions sharing_options;
+  auto sharing_options_extension_id =
+      sharing_model_options_in_embedding_network_proto;
+  if (reader.trimmed_proto().HasExtension(sharing_options_extension_id)) {
+    sharing_options =
+        reader.trimmed_proto().GetExtension(sharing_options_extension_id);
+  } else {
+    // Default values when SharingModelOptions is not present.
+    sharing_options.set_always_accept_url_hint(true);
+    sharing_options.set_always_accept_email_hint(true);
+  }
+
   if (!model_options.use_shared_embeddings()) {
     std::shared_ptr<EmbeddingParams> embedding_params(new EmbeddingParams(
         start, num_bytes, feature_processor_options.context_size()));
     return new ModelParams(start, num_bytes, embedding_params,
-                           selection_options, feature_processor_options);
+                           selection_options, sharing_options,
+                           feature_processor_options);
   } else {
-    return new ModelParams(start, num_bytes,
-                           std::move(external_embedding_params),
-                           selection_options, feature_processor_options);
+    return new ModelParams(
+        start, num_bytes, std::move(external_embedding_params),
+        selection_options, sharing_options, feature_processor_options);
   }
 }
 

@@ -78,6 +78,15 @@ class TextClassificationModel {
     return selection_feature_processor_.get();
   }
 
+  // Collection name when url hint is accepted.
+  const std::string kUrlHintCollection = "url";
+
+  // Collection name when email hint is accepted.
+  const std::string kEmailHintCollection = "email";
+
+  SelectionModelOptions selection_options_;
+  SharingModelOptions sharing_options_;
+
  private:
   bool LoadModels(int fd);
 
@@ -104,7 +113,6 @@ class TextClassificationModel {
   std::unique_ptr<ModelParams> sharing_params_;
   std::unique_ptr<nlp_core::EmbeddingNetwork> sharing_network_;
 
-  SelectionModelOptions selection_options_;
   std::set<int> punctuation_to_strip_;
 };
 
