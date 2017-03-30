@@ -59,9 +59,7 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_CFLAGS += $(MY_LIBTEXTCLASSIFIER_CFLAGS)
 LOCAL_STRIP_MODULE := $(LIBTEXTCLASSIFIER_STRIP_OPTS)
 
-LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
-    find . -name "*.cc" -and -not -name ".*" -and -not -path "./tests/*"))
-LOCAL_C_INCLUDES += .
+LOCAL_SRC_FILES := $(filter-out tests/%,$(call all-subdir-cpp-files))
 LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 
 LOCAL_STATIC_LIBRARIES += libtextclassifier_protos
@@ -70,7 +68,8 @@ LOCAL_SHARED_LIBRARIES += liblog
 LOCAL_REQUIRED_MODULES := textclassifier.langid.model
 LOCAL_REQUIRED_MODULES += textclassifier.smartselection.en.model
 
-LOCAL_LDFLAGS += -Wl,-version-script=external/libtextclassifier/jni.lds
+LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/jni.lds
+LOCAL_LDFLAGS += -Wl,-version-script=$(LOCAL_PATH)/jni.lds
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -93,9 +92,7 @@ LOCAL_TEST_DATA := $(call find-test-data-in-subdirs, $(LOCAL_PATH), *, tests/tes
 LOCAL_CPPFLAGS_32 += -DTEST_DATA_DIR="\"/data/nativetest/libtextclassifier_tests/tests/testdata/\""
 LOCAL_CPPFLAGS_64 += -DTEST_DATA_DIR="\"/data/nativetest64/libtextclassifier_tests/tests/testdata/\""
 
-LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
-    find . -name "*.cc" -and -not -name ".*"))
-LOCAL_C_INCLUDES += .
+LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
 LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 
 LOCAL_STATIC_LIBRARIES += libtextclassifier_protos libgmock
@@ -111,7 +108,6 @@ include $(BUILD_NATIVE_TEST)
 include $(CLEAR_VARS)
 LOCAL_MODULE        := textclassifier.langid.model
 LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := google
 LOCAL_SRC_FILES     := ./models/textclassifier.langid.model
 LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
@@ -124,7 +120,6 @@ include $(BUILD_PREBUILT)
 include $(CLEAR_VARS)
 LOCAL_MODULE        := textclassifier.smartselection.en.model
 LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := google
 LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.en.model
 LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
