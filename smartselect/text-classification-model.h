@@ -55,11 +55,6 @@ class TextClassificationModel {
   CodepointSpan SuggestSelection(const std::string& context,
                                  CodepointSpan click_indices) const;
 
-  // Same as above but accepts a selection_with_context. Only used for
-  // evaluation.
-  CodepointSpan SuggestSelection(
-      const SelectionWithContext& selection_with_context) const;
-
   // Classifies the selected text given the context string.
   // Requires that the model is a smart sharing model.
   // Returns an empty result if an error occurs.

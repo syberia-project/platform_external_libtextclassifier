@@ -61,12 +61,6 @@ int CenterTokenFromClick(CodepointSpan span, const std::vector<Token>& tokens);
 int CenterTokenFromMiddleOfSelection(
     CodepointSpan span, const std::vector<Token>& selectable_tokens);
 
-// Finds tokens that are part of the selection.
-// NOTE: Will select all tokens that somehow overlap with the selection.
-std::vector<Token> FindTokensInSelection(
-    const std::vector<Token>& selectable_tokens,
-    const SelectionWithContext& selection_with_context);
-
 }  // namespace internal
 
 TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
@@ -90,9 +84,6 @@ class FeatureProcessor {
   explicit FeatureProcessor(const std::string& serialized_options)
       : FeatureProcessor(internal::ParseSerializedOptions(serialized_options)) {
   }
-
-  CodepointSpan ClickRandomTokenInSelection(
-      const SelectionWithContext& selection_with_context) const;
 
   // Tokenizes the input string using the selected tokenization method.
   std::vector<Token> Tokenize(const std::string& utf8_text) const;

@@ -63,8 +63,9 @@ LOCAL_SRC_FILES := $(filter-out tests/%,$(call all-subdir-cpp-files))
 LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 
 LOCAL_STATIC_LIBRARIES += libtextclassifier_protos
-LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
+LOCAL_STATIC_LIBRARIES += libprotobuf-cpp-lite
 LOCAL_SHARED_LIBRARIES += liblog
+LOCAL_SHARED_LIBRARIES += libicuuc libicui18n
 LOCAL_REQUIRED_MODULES := textclassifier.langid.model
 LOCAL_REQUIRED_MODULES += textclassifier.smartselection.en.model
 
@@ -97,6 +98,7 @@ LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 LOCAL_STATIC_LIBRARIES += libtextclassifier_protos libgmock
 LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
 LOCAL_SHARED_LIBRARIES += liblog
+LOCAL_SHARED_LIBRARIES += libicuuc libicui18n
 
 include $(BUILD_NATIVE_TEST)
 

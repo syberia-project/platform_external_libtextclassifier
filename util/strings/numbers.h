@@ -33,7 +33,8 @@ namespace libtextclassifier {
 // Stores parsed number into *value.  Returns true on success, false on error.
 // Note: presence of extra characters after the number counts as an error: e.g.,
 // parsing "123a" will return false due to the extra "a" (which is not a valid
-// radix-10 digit).
+// radix-10 digit).  Parsing a string that does not contain any digit (e.g., "")
+// is treated as an error: this function returns false.
 bool ParseInt32(const char *c_str, int32 *value);
 
 // Like ParseInt32, but for int64.

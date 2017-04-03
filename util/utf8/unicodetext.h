@@ -115,6 +115,17 @@ class UnicodeText {
       return !(lhs < rhs);
     }
 
+    int utf8_length() const {
+      if (it_[0] < 0x80) {
+        return 1;
+      } else if (it_[0] < 0xE0) {
+        return 2;
+      } else if (it_[0] < 0xF0) {
+        return 3;
+      } else {
+        return 4;
+      }
+    }
     const char* utf8_data() const { return it_; }
 
    private:
@@ -133,6 +144,10 @@ class UnicodeText {
   UnicodeText& Copy(const UnicodeText& src);
   UnicodeText& PointToUTF8(const char* utf8_buffer, int byte_length);
   UnicodeText& CopyUTF8(const char* utf8_buffer, int byte_length);
+
+  // Calling this may invalidate pointers to underlying data.
+  UnicodeText& AppendUTF8(const char* utf8, int len);
+  void clear();
 
   static std::string UTF8Substring(const const_iterator& first,
                                    const const_iterator& last);

@@ -295,21 +295,6 @@ CodepointSpan TextClassificationModel::SuggestSelectionSymmetrical(
   return {click_indices.first, click_indices.second};
 }
 
-// TODO(zilka): Move this function to EvalTextClassificationModel.
-CodepointSpan TextClassificationModel::SuggestSelection(
-    const SelectionWithContext& selection_with_context) const {
-  CodepointSpan click_indices = {selection_with_context.click_start,
-                                 selection_with_context.click_end};
-
-  // If click_indices are unspecified, select the first token.
-  if (click_indices == CodepointSpan({kInvalidIndex, kInvalidIndex})) {
-    click_indices = selection_feature_processor_->ClickRandomTokenInSelection(
-        selection_with_context);
-  }
-
-  return SuggestSelection(selection_with_context.context, click_indices);
-}
-
 std::vector<std::pair<std::string, float>>
 TextClassificationModel::ClassifyText(const std::string& context,
                                       CodepointSpan selection_indices,

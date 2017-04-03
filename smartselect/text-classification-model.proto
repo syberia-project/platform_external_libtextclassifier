@@ -69,11 +69,24 @@ message FeatureProcessorOptions {
   // character trigrams etc.
   repeated int32 chargram_orders = 4;
 
+  // Maximum length of a word, in codepoints.
+  optional int32 max_word_length = 21 [default = 20];
+
+  // If true, will use the unicode-aware functionality for extracting features.
+  optional bool unicode_aware_features = 19 [default = false];
+
   // Whether to extract the token case feature.
   optional bool extract_case_feature = 5 [default = false];
 
   // Whether to extract the selection mask feature.
   optional bool extract_selection_mask_feature = 6 [default = false];
+
+  // List of regexps to run over each token. For each regexp, if there is a
+  // match, a dense feature of 1.0 is emitted. Otherwise -1.0 is used.
+  repeated string regexp_feature = 22;
+
+  // Whether to remap all digits to a single number.
+  optional bool remap_digits = 20 [default = false];
 
   // If true, tokenize on space, otherwise tokenize using ICU.
   optional bool tokenize_on_space = 7 [default = true];
