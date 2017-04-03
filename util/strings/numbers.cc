@@ -26,20 +26,38 @@ namespace libtextclassifier {
 
 bool ParseInt32(const char *c_str, int32 *value) {
   char *temp;
+
+  // Short version of man strtol:
+  //
+  // strtol parses some optional whitespaces, an optional +/- sign, and next a
+  // succession of digits.  If it finds some digits, it sets temp to point to
+  // the first character after that succession of digits and returns the parsed
+  // integer.
+  //
+  // If there were no digits at all, strtol() sets temp to be c_str (the start
+  // address) and returns 0.
   *value = strtol(c_str, &temp, 0);  // NOLINT
-  return (*temp == '\0');
+
+  // temp != c_str means that the input string contained at least one digit (see
+  // above).  *temp == '\0' means the input string does not contain any random
+  // chars after the number.
+  return (temp != c_str) && (*temp == '\0');
 }
 
 bool ParseInt64(const char *c_str, int64 *value) {
   char *temp;
   *value = strtoll(c_str, &temp, 0);  // NOLINT
-  return (*temp == '\0');
+
+  // See comments inside ParseInt32.
+  return (temp != c_str) && (*temp == '\0');
 }
 
 bool ParseDouble(const char *c_str, double *value) {
   char *temp;
   *value = strtod(c_str, &temp);
-  return (*temp == '\0');
+
+  // See comments inside ParseInt32.
+  return (temp != c_str) && (*temp == '\0');
 }
 
 #ifdef COMPILER_MSVC

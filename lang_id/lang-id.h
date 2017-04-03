@@ -78,7 +78,8 @@ class LangId {
   std::string FindLanguage(const std::string &text) const;
 
   // Returns a vector of language codes along with the probability for each
-  // language.
+  // language.  The result contains at least one element.  The sum of
+  // probabilities may be less than 1.0.
   std::vector<std::pair<std::string, float>> FindLanguages(
       const std::string &text) const;
 

@@ -87,43 +87,6 @@ inline std::ostream& operator<<(std::ostream& os, const Token& token) {
             << ", is_padding=" << token.is_padding << ")";
 }
 
-// Represents a selection.
-struct SelectionWithContext {
-  SelectionWithContext()
-      : context(""),
-        selection_start(-1),
-        selection_end(-1),
-        click_start(-1),
-        click_end(-1) {}
-
-  // UTF8 encoded context.
-  std::string context;
-
-  // Codepoint index to the context where selection starts.
-  CodepointIndex selection_start;
-
-  // Codepoint index to the context one past where selection ends.
-  CodepointIndex selection_end;
-
-  // Codepoint index to the context where click starts.
-  CodepointIndex click_start;
-
-  // Codepoint index to the context one past where click ends.
-  CodepointIndex click_end;
-
-  // Type of the selection.
-  std::string collection;
-
-  // Whether the SelectionWithContext is invalid.
-  bool is_invalid;
-
-  CodepointSpan GetClickSpan() const { return {click_start, click_end}; }
-
-  CodepointSpan GetSelectionSpan() const {
-    return {selection_start, selection_end};
-  }
-};
-
 }  // namespace libtextclassifier
 
 #endif  // LIBTEXTCLASSIFIER_SMARTSELECT_TYPES_H_

@@ -17,32 +17,45 @@
 #ifndef LIBTEXTCLASSIFIER_SMARTSELECT_TOKEN_FEATURE_EXTRACTOR_H_
 #define LIBTEXTCLASSIFIER_SMARTSELECT_TOKEN_FEATURE_EXTRACTOR_H_
 
+#include <memory>
 #include <vector>
 
 #include "base.h"
 #include "smartselect/types.h"
+#include "unicode/regex.h"
 
 namespace libtextclassifier {
 
 struct TokenFeatureExtractorOptions {
   // Number of buckets used for hashing charactergrams.
-  int num_buckets;
+  int num_buckets = 0;
 
   // Orders of charactergrams to extract. E.g., 2 means character bigrams, 3
   // character trigrams etc.
   std::vector<int> chargram_orders;
 
   // Whether to extract the token case feature.
-  bool extract_case_feature;
+  bool extract_case_feature = false;
+
+  // If true, will use the unicode-aware functionality for extracting features.
+  bool unicode_aware_features = false;
 
   // Whether to extract the selection mask feature.
-  bool extract_selection_mask_feature;
+  bool extract_selection_mask_feature = false;
+
+  // Regexp features to extract.
+  std::vector<std::string> regexp_features;
+
+  // Whether to remap digits to a single number.
+  bool remap_digits = false;
+
+  // Maximum length of a word.
+  int max_word_length = 20;
 };
 
 class TokenFeatureExtractor {
  public:
-  explicit TokenFeatureExtractor(const TokenFeatureExtractorOptions& options)
-      : options_(options) {}
+  explicit TokenFeatureExtractor(const TokenFeatureExtractorOptions& options);
 
   // Extracts features from a token.
   //  - sparse_features are indices into a sparse feature vector of size
@@ -64,8 +77,18 @@ class TokenFeatureExtractor {
   // Extracts the charactergram features from the token.
   std::vector<int> ExtractCharactergramFeatures(const Token& token) const;
 
+  // Extracts the charactergram features from the token in a non-unicode-aware
+  // way.
+  std::vector<int> ExtractCharactergramFeaturesAscii(const Token& token) const;
+
+  // Extracts the charactergram features from the token in a unicode-aware way.
+  std::vector<int> ExtractCharactergramFeaturesUnicode(
+      const Token& token) const;
+
  private:
   TokenFeatureExtractorOptions options_;
+
+  std::vector<std::unique_ptr<icu::RegexPattern>> regex_patterns_;
 };
 
 }  // namespace libtextclassifier

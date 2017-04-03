@@ -339,123 +339,6 @@ TEST(FeatureProcessorTest, GetFeaturesWithLongerContext) {
   EXPECT_EQ(19, features.size());
 }
 
-TEST(FeatureProcessorTest, FindTokensInSelectionSingleCharacter) {
-  FeatureProcessorOptions options;
-  options.set_num_buckets(10);
-  options.set_context_size(9);
-  options.set_max_selection_span(7);
-  options.add_chargram_orders(1);
-  options.set_tokenize_on_space(true);
-  TokenizationCodepointRange* config =
-      options.add_tokenization_codepoint_config();
-  config->set_start(32);
-  config->set_end(33);
-  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
-  FeatureProcessor feature_processor(options);
-
-  SelectionWithContext selection_with_context;
-  selection_with_context.context = "1 2 3 c o n t e x t X c o n t e x t 1 2 3";
-
-  // Selection and click indices of the X in the middle:
-  selection_with_context.selection_start = 20;
-  selection_with_context.selection_end = 21;
-  // clang-format off
-  EXPECT_THAT(internal::FindTokensInSelection(
-                  feature_processor.Tokenize(selection_with_context.context),
-                  selection_with_context),
-              ElementsAreArray({Token("X", 20, 21, false)}));
-  // clang-format on
-}
-
-TEST(FeatureProcessorTest, FindTokensInSelectionInsideTokenBoundary) {
-  FeatureProcessorOptions options;
-  options.set_num_buckets(10);
-  options.set_context_size(9);
-  options.set_max_selection_span(7);
-  options.add_chargram_orders(1);
-  options.set_tokenize_on_space(true);
-  TokenizationCodepointRange* config =
-      options.add_tokenization_codepoint_config();
-  config->set_start(32);
-  config->set_end(33);
-  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
-  FeatureProcessor feature_processor(options);
-
-  SelectionWithContext selection_with_context;
-  selection_with_context.context = "I live at 350 Third Street, today.";
-
-  const std::vector<Token> expected_selection = {
-      // clang-format off
-      Token("350", 10, 13, false),
-      Token("Third", 14, 19, false),
-      Token("Street,", 20, 27, false),
-      // clang-format on
-  };
-
-  // Selection: I live at {350 Third Str}eet, today.
-  selection_with_context.selection_start = 10;
-  selection_with_context.selection_end = 23;
-  EXPECT_THAT(internal::FindTokensInSelection(
-                  feature_processor.Tokenize(selection_with_context.context),
-                  selection_with_context),
-              ElementsAreArray(expected_selection));
-
-  // Selection: I live at {350 Third Street,} today.
-  selection_with_context.selection_start = 10;
-  selection_with_context.selection_end = 27;
-  EXPECT_THAT(internal::FindTokensInSelection(
-                  feature_processor.Tokenize(selection_with_context.context),
-                  selection_with_context),
-              ElementsAreArray(expected_selection));
-
-  // Selection: I live at {350 Third Street, }today.
-  selection_with_context.selection_start = 10;
-  selection_with_context.selection_end = 28;
-  EXPECT_THAT(internal::FindTokensInSelection(
-                  feature_processor.Tokenize(selection_with_context.context),
-                  selection_with_context),
-              ElementsAreArray(expected_selection));
-
-  // Selection: I live at {350 Third S}treet, today.
-  selection_with_context.selection_start = 10;
-  selection_with_context.selection_end = 21;
-  EXPECT_THAT(internal::FindTokensInSelection(
-                  feature_processor.Tokenize(selection_with_context.context),
-                  selection_with_context),
-              ElementsAreArray(expected_selection));
-
-  // Test that when crossing the boundary, we select less/more.
-
-  // Selection: I live at {350 Third} Street, today.
-  selection_with_context.selection_start = 10;
-  selection_with_context.selection_end = 19;
-  EXPECT_THAT(internal::FindTokensInSelection(
-                  feature_processor.Tokenize(selection_with_context.context),
-                  selection_with_context),
-              ElementsAreArray({
-                  // clang-format off
-                  Token("350", 10, 13, false),
-                  Token("Third", 14, 19, false),
-                  // clang-format on
-              }));
-
-  // Selection: I live at {350 Third Street, t}oday.
-  selection_with_context.selection_start = 10;
-  selection_with_context.selection_end = 29;
-  EXPECT_THAT(
-      internal::FindTokensInSelection(
-          feature_processor.Tokenize(selection_with_context.context),
-          selection_with_context),
-      ElementsAreArray({
-          // clang-format off
-                  Token("350", 10, 13, false),
-                  Token("Third", 14, 19, false),
-                  Token("Street,", 20, 27, false),
-                  Token("today.", 28, 34, false),
-          // clang-format on
-      }));
-}
-
 TEST(FeatureProcessorTest, CenterTokenFromClick) {
   int token_index;
 
@@ -479,7 +362,6 @@ TEST(FeatureProcessorTest, CenterTokenFromClick) {
 }
 
 TEST(FeatureProcessorTest, CenterTokenFromMiddleOfSelection) {
-  SelectionWithContext selection;
   int token_index;
 
   // Selection of length 3. Exactly aligned indices.
