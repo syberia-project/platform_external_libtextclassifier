@@ -55,10 +55,29 @@ namespace {
 // LangId::SetProbabilityThreshold().
 static const float kDefaultProbabilityThreshold = 0.50;
 
+// Default value for min text size below which our model can't provide a
+// meaningful prediction.
+static const int kDefaultMinTextSizeInBytes = 20;
+
 // Initial value for the default language for LangId::FindLanguage().  The
 // default language can be changed (for an individual LangId object) using
 // LangId::SetDefaultLanguage().
 static const char kInitialDefaultLanguage[] = "";
+
+// Returns total number of bytes of the words from sentence, without the ^
+// (start-of-word) and $ (end-of-word) markers.  Note: "real text" means that
+// this ignores whitespace and punctuation characters from the original text.
+int GetRealTextSize(const LightSentence &sentence) {
+  int total = 0;
+  for (int i = 0; i < sentence.num_words(); ++i) {
+    TC_DCHECK(!sentence.word(i).empty());
+    TC_DCHECK_EQ('^', sentence.word(i).front());
+    TC_DCHECK_EQ('$', sentence.word(i).back());
+    total += sentence.word(i).size() - 2;
+  }
+  return total;
+}
+
 }  // namespace
 
 // Class that performs all work behind LangId.
@@ -116,6 +135,9 @@ class LangIdImpl {
 
     probability_threshold_ =
         context.Get("reliability_thresh", kDefaultProbabilityThreshold);
+    min_text_size_in_bytes_ =
+        context.Get("min_text_size_in_bytes", kDefaultMinTextSizeInBytes);
+
     if (!lang_id_brain_interface_.Init(&context)) {
       return;
     }
@@ -151,6 +173,16 @@ class LangIdImpl {
     for (int i = 0; i < scores.size(); i++) {
       result.push_back({GetLanguageForSoftmaxLabel(i), scores[i]});
     }
+
+    // To avoid crashing clients that always expect at least one predicted
+    // language, we promised (see doc for this method) that the result always
+    // contains at least one element.
+    if (result.empty()) {
+      // We use a tiny probability, such that any client that uses a meaningful
+      // probability threshold ignores this prediction.  We don't use 0.0f, to
+      // avoid crashing clients that normalize the probabilities we return here.
+      result.push_back({default_language_, 0.001f});
+    }
     return result;
   }
 
@@ -162,6 +194,10 @@ class LangIdImpl {
     // Create a Sentence storing the input text.
     LightSentence sentence;
     TokenizeTextForLangId(text, &sentence);
+
+    if (GetRealTextSize(sentence) < min_text_size_in_bytes_) {
+      return {};
+    }
 
     // TODO(salcianu): reuse vector<FeatureVector>.
     std::vector<FeatureVector> features(
@@ -296,6 +332,11 @@ class LangIdImpl {
   // Only predictions with a probability (confidence) above this threshold are
   // reported.  Otherwise, we report default_language_.
   float probability_threshold_ = kDefaultProbabilityThreshold;
+
+  // Min size of the input text for our predictions to be meaningful.  Below
+  // this threshold, the underlying model may report a wrong language and a high
+  // confidence score.
+  int min_text_size_in_bytes_ = kDefaultMinTextSizeInBytes;
 
   // Known languages: softmax label i (an integer) means languages_.element(i)
   // (something like "en", "fr", "ru", etc).

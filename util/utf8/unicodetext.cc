@@ -67,6 +67,12 @@ void UnicodeText::Repr::reserve(int new_capacity) {
   // size_ is unchanged.
 }
 
+void UnicodeText::Repr::append(const char* bytes, int byte_length) {
+  reserve(size_ + byte_length);
+  memcpy(data_ + size_, bytes, byte_length);
+  size_ += byte_length;
+}
+
 void UnicodeText::Repr::clear() {
   if (ours_) delete[] data_;
   data_ = nullptr;
@@ -94,6 +100,13 @@ UnicodeText& UnicodeText::CopyUTF8(const char* buffer, int byte_length) {
   repr_.Copy(buffer, byte_length);
   return *this;
 }
+
+UnicodeText& UnicodeText::AppendUTF8(const char* utf8, int len) {
+  repr_.append(utf8, len);
+  return *this;
+}
+
+void UnicodeText::clear() { repr_.clear(); }
 
 std::string UnicodeText::UTF8Substring(const const_iterator& first,
                                        const const_iterator& last) {

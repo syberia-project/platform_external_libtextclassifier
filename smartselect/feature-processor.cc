@@ -27,8 +27,6 @@
 
 namespace libtextclassifier {
 
-constexpr int kMaxWordLength = 20;  // All words will be trimmed to this length.
-
 namespace internal {
 
 TokenFeatureExtractorOptions BuildTokenFeatureExtractorOptions(
@@ -39,9 +37,15 @@ TokenFeatureExtractorOptions BuildTokenFeatureExtractorOptions(
   for (int order : options.chargram_orders()) {
     extractor_options.chargram_orders.push_back(order);
   }
+  extractor_options.max_word_length = options.max_word_length();
   extractor_options.extract_case_feature = options.extract_case_feature();
+  extractor_options.unicode_aware_features = options.unicode_aware_features();
   extractor_options.extract_selection_mask_feature =
       options.extract_selection_mask_feature();
+  for (int i = 0; i < options.regexp_feature_size(); ++i) {
+    extractor_options.regexp_features.push_back(options.regexp_feature(i));
+  }
+  extractor_options.remap_digits = options.remap_digits();
 
   return extractor_options;
 }
@@ -161,31 +165,6 @@ void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
       }
     }
   }
-}
-
-std::vector<Token> FindTokensInSelection(
-    const std::vector<Token>& selectable_tokens,
-    const SelectionWithContext& selection_with_context) {
-  std::vector<Token> tokens_in_selection;
-  for (const Token& token : selectable_tokens) {
-    const bool selection_start_in_token =
-        token.start <= selection_with_context.selection_start &&
-        token.end > selection_with_context.selection_start;
-
-    const bool token_contained_in_selection =
-        token.start >= selection_with_context.selection_start &&
-        token.end < selection_with_context.selection_end;
-
-    const bool selection_end_in_token =
-        token.start < selection_with_context.selection_end &&
-        token.end >= selection_with_context.selection_end;
-
-    if (selection_start_in_token || token_contained_in_selection ||
-        selection_end_in_token) {
-      tokens_in_selection.push_back(token);
-    }
-  }
-  return tokens_in_selection;
 }
 
 }  // namespace internal
@@ -404,23 +383,6 @@ int FeatureProcessor::FindCenterToken(CodepointSpan span,
   } else {
     TC_LOG(ERROR) << "Invalid center token selection method.";
     return kInvalidIndex;
-  }
-}
-
-CodepointSpan FeatureProcessor::ClickRandomTokenInSelection(
-    const SelectionWithContext& selection_with_context) const {
-  const std::vector<Token> tokens = Tokenize(selection_with_context.context);
-  const std::vector<Token> tokens_in_selection =
-      internal::FindTokensInSelection(tokens, selection_with_context);
-
-  if (!tokens_in_selection.empty()) {
-    std::uniform_int_distribution<> selection_token_draw(
-        0, tokens_in_selection.size() - 1);
-    const int token_id = selection_token_draw(*random_);
-    return {tokens_in_selection[token_id].start,
-            tokens_in_selection[token_id].end};
-  } else {
-    return {kInvalidIndex, kInvalidIndex};
   }
 }
 

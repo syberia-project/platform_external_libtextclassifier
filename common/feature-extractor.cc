@@ -18,7 +18,6 @@
 
 #include "common/feature-types.h"
 #include "common/fml-parser.h"
-#include "common/utils.h"
 #include "util/base/integral_types.h"
 #include "util/base/logging.h"
 #include "util/gtl/stl_util.h"
