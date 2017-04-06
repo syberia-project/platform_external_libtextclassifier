@@ -22,7 +22,7 @@
 namespace libtextclassifier {
 
 void Tokenizer::PrepareTokenizationCodepointRanges(
-    const std::vector<TokenizationCodepointRange> codepoint_range_configs) {
+    const std::vector<TokenizationCodepointRange>& codepoint_range_configs) {
   codepoint_ranges_.clear();
   codepoint_ranges_.reserve(codepoint_range_configs.size());
   for (const TokenizationCodepointRange& range : codepoint_range_configs) {

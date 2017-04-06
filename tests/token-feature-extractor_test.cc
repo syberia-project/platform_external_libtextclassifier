@@ -282,22 +282,6 @@ TEST(TokenFeatureExtractorTest, RegexFeatures) {
   EXPECT_THAT(dense_features, testing::ElementsAreArray({-1.0, 1.0}));
 }
 
-TEST(TokenFeatureExtractorTest, ExtractInvalidUTF8) {
-  TokenFeatureExtractorOptions options;
-  options.num_buckets = 1000;
-  options.chargram_orders = std::vector<int>{1, 2, 3, 4, 5, 100};
-  options.extract_case_feature = true;
-  options.unicode_aware_features = true;
-  options.extract_selection_mask_feature = true;
-  TestingTokenFeatureExtractor extractor(options);
-
-  // Test that this runs. ASAN should catch problems.
-  std::vector<int> sparse_features;
-  std::vector<float> dense_features;
-  extractor.Extract(Token{"\xf0👶👶¾👶🏿\xf0", 0, 7, true},
-                    &sparse_features, &dense_features);
-}
-
 TEST(TokenFeatureExtractorTest, ExtractTooLongWord) {
   TokenFeatureExtractorOptions options;
   options.num_buckets = 1000;
@@ -320,6 +304,39 @@ TEST(TokenFeatureExtractorTest, ExtractTooLongWord) {
                   extractor.HashToken("abcdefghij\1qřstuvwxyz$"),
                   // clang-format on
               }));
+}
+
+TEST(TokenFeatureExtractorTest, ExtractAsciiUnicodeMatches) {
+  TokenFeatureExtractorOptions options;
+  options.num_buckets = 1000;
+  options.chargram_orders = std::vector<int>{1, 2, 3, 4, 5};
+  options.extract_case_feature = true;
+  options.unicode_aware_features = true;
+  options.extract_selection_mask_feature = true;
+  TestingTokenFeatureExtractor extractor_unicode(options);
+
+  options.unicode_aware_features = false;
+  TestingTokenFeatureExtractor extractor_ascii(options);
+
+  for (const std::string& input :
+       {"https://www.abcdefgh.com/in/xxxkkkvayio",
+        "https://www.fjsidofj.om/xx/abadfy/xxxx/?xfjiis=ffffiijiihil",
+        "asdfhasdofjiasdofj#%()*%#*(aisdojfaosdifjiaofjdsiofjdi_fdis3w", "abcd",
+        "x", "Hello", "Hey,", "Hi", ""}) {
+    std::vector<int> sparse_features_unicode;
+    std::vector<float> dense_features_unicode;
+    extractor_unicode.Extract(Token{input, 0, 0, true},
+                              &sparse_features_unicode,
+                              &dense_features_unicode);
+
+    std::vector<int> sparse_features_ascii;
+    std::vector<float> dense_features_ascii;
+    extractor_ascii.Extract(Token{input, 0, 0, true}, &sparse_features_ascii,
+                            &dense_features_ascii);
+
+    EXPECT_THAT(sparse_features_unicode, sparse_features_ascii) << input;
+    EXPECT_THAT(dense_features_unicode, dense_features_ascii) << input;
+  }
 }
 
 TEST(TokenFeatureExtractorTest, ExtractForPadToken) {

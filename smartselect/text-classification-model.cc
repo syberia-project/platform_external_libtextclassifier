@@ -51,18 +51,29 @@ CodepointSpan TextClassificationModel::StripPunctuation(
     return selection;
   }
 
-  UnicodeText::const_iterator it;
-  for (it = context_unicode.begin(), std::advance(it, selection.first);
-       punctuation_to_strip_.find(*it) != punctuation_to_strip_.end();
-       ++it, ++selection.first) {
+  // Move the left border until we encounter a non-punctuation character.
+  UnicodeText::const_iterator it_from_begin = context_unicode.begin();
+  std::advance(it_from_begin, selection.first);
+  for (; punctuation_to_strip_.find(*it_from_begin) !=
+         punctuation_to_strip_.end();
+       ++it_from_begin, ++selection.first) {
   }
 
-  for (it = context_unicode.begin(), std::advance(it, selection.second - 1);
-       punctuation_to_strip_.find(*it) != punctuation_to_strip_.end();
-       --it, --selection.second) {
+  // Unless we are already at the end, move the right border until we encounter
+  // a non-punctuation character.
+  UnicodeText::const_iterator it_from_end = context_unicode.begin();
+  std::advance(it_from_end, selection.second);
+  if (it_from_begin != it_from_end) {
+    --it_from_end;
+    for (; punctuation_to_strip_.find(*it_from_end) !=
+           punctuation_to_strip_.end();
+         --it_from_end, --selection.second) {
+    }
+    return selection;
+  } else {
+    // When the token is all punctuation.
+    return {0, 0};
   }
-
-  return selection;
 }
 
 TextClassificationModel::TextClassificationModel(int fd) {
