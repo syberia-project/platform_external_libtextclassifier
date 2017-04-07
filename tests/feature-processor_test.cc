@@ -23,6 +23,7 @@ namespace libtextclassifier {
 namespace {
 
 using testing::ElementsAreArray;
+using testing::FloatEq;
 
 TEST(FeatureProcessorTest, SplitTokensOnSelectionBoundariesMiddle) {
   std::vector<Token> tokens{Token("Hělló", 0, 5, false),
@@ -201,6 +202,8 @@ class TestingFeatureProcessor : public FeatureProcessor {
  public:
   using FeatureProcessor::FeatureProcessor;
   using FeatureProcessor::SpanToLabel;
+  using FeatureProcessor::SupportedCodepointsRatio;
+  using FeatureProcessor::IsCodepointSupported;
 };
 
 TEST(FeatureProcessorTest, SpanToLabel) {
@@ -438,6 +441,73 @@ TEST(FeatureProcessorTest, GetFeaturesForSharing) {
       &extra_features, &selection_label_spans, &selection_label,
       &selection_codepoint_label, &classification_label));
   EXPECT_EQ(19, features.size());
+}
+
+TEST(FeatureProcessorTest, SupportedCodepointsRatio) {
+  FeatureProcessorOptions options;
+  options.set_context_size(2);
+  options.set_max_selection_span(2);
+  options.set_snap_label_span_boundaries_to_containing_tokens(false);
+
+  TokenizationCodepointRange* config =
+      options.add_tokenization_codepoint_config();
+  config->set_start(32);
+  config->set_end(33);
+  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
+
+  FeatureProcessorOptions::CodepointRange* range;
+  range = options.add_supported_codepoint_ranges();
+  range->set_start(0);
+  range->set_end(128);
+
+  range = options.add_supported_codepoint_ranges();
+  range->set_start(10000);
+  range->set_end(10001);
+
+  range = options.add_supported_codepoint_ranges();
+  range->set_start(20000);
+  range->set_end(30000);
+
+  TestingFeatureProcessor feature_processor(options);
+  EXPECT_THAT(feature_processor.SupportedCodepointsRatio(
+                  1, feature_processor.Tokenize("aaa bbb ccc")),
+              FloatEq(1.0));
+  EXPECT_THAT(feature_processor.SupportedCodepointsRatio(
+                  1, feature_processor.Tokenize("aaa bbb ěěě")),
+              FloatEq(2.0 / 3));
+  EXPECT_THAT(feature_processor.SupportedCodepointsRatio(
+                  1, feature_processor.Tokenize("ěěě řřř ěěě")),
+              FloatEq(0.0));
+  EXPECT_FALSE(feature_processor.IsCodepointSupported(-1));
+  EXPECT_TRUE(feature_processor.IsCodepointSupported(0));
+  EXPECT_TRUE(feature_processor.IsCodepointSupported(10));
+  EXPECT_TRUE(feature_processor.IsCodepointSupported(127));
+  EXPECT_FALSE(feature_processor.IsCodepointSupported(128));
+  EXPECT_FALSE(feature_processor.IsCodepointSupported(9999));
+  EXPECT_TRUE(feature_processor.IsCodepointSupported(10000));
+  EXPECT_FALSE(feature_processor.IsCodepointSupported(10001));
+  EXPECT_TRUE(feature_processor.IsCodepointSupported(25000));
+
+  std::vector<nlp_core::FeatureVector> features;
+  std::vector<float> extra_features;
+
+  options.set_min_supported_codepoint_ratio(0.0);
+  feature_processor = TestingFeatureProcessor(options);
+  EXPECT_TRUE(feature_processor.GetFeatures("ěěě řřř eee", {4, 7}, &features,
+                                            &extra_features,
+                                            /*selection_label_spans=*/nullptr));
+
+  options.set_min_supported_codepoint_ratio(0.2);
+  feature_processor = TestingFeatureProcessor(options);
+  EXPECT_TRUE(feature_processor.GetFeatures("ěěě řřř eee", {4, 7}, &features,
+                                            &extra_features,
+                                            /*selection_label_spans=*/nullptr));
+
+  options.set_min_supported_codepoint_ratio(0.5);
+  feature_processor = TestingFeatureProcessor(options);
+  EXPECT_FALSE(feature_processor.GetFeatures(
+      "ěěě řřř eee", {4, 7}, &features, &extra_features,
+      /*selection_label_spans=*/nullptr));
 }
 
 }  // namespace

@@ -28,6 +28,9 @@ class StringPiece {
  public:
   StringPiece() : StringPiece(nullptr, 0) {}
 
+  StringPiece(const char *str)  // NOLINT(runtime/explicit)
+      : start_(str), size_(strlen(str)) {}
+
   StringPiece(const char *start, size_t size)
       : start_(start), size_(size) {}
 
@@ -36,11 +39,17 @@ class StringPiece {
   StringPiece(const std::string &s)  // NOLINT(runtime/explicit)
       : StringPiece(s.data(), s.size()) {}
 
+  StringPiece(const std::string &s, int offset, int len)
+      : StringPiece(s.data() + offset, len) {}
+
+  char operator[](size_t i) const { return start_[i]; }
+
   // Returns start address of underlying data.
   const char *data() const { return start_; }
 
   // Returns number of bytes of underlying data.
   size_t size() const { return size_; }
+  size_t length() const { return size_; }
 
   // Returns a std::string containing a copy of the underlying data.
   std::string ToString() const {

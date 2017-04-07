@@ -129,10 +129,7 @@ class TestingTextClassificationModel
   explicit TestingTextClassificationModel(int fd)
       : libtextclassifier::TextClassificationModel(fd) {}
 
-  CodepointSpan TestStripPunctuation(CodepointSpan selection,
-                                     const std::string& context) const {
-    return StripPunctuation(selection, context);
-  }
+  using libtextclassifier::TextClassificationModel::StripPunctuation;
 
   void DisableClassificationHints() {
     sharing_options_.set_always_accept_url_hint(false);
@@ -148,19 +145,19 @@ TEST(TextClassificationModelTest, StripPunctuation) {
   close(fd);
 
   EXPECT_EQ(std::make_pair(3, 10),
-            model->TestStripPunctuation({0, 10}, ".,-abcd.()"));
-  EXPECT_EQ(std::make_pair(0, 6),
-            model->TestStripPunctuation({0, 6}, "(abcd)"));
-  EXPECT_EQ(std::make_pair(1, 5),
-            model->TestStripPunctuation({0, 6}, "[abcd]"));
-  EXPECT_EQ(std::make_pair(1, 5),
-            model->TestStripPunctuation({0, 6}, "{abcd}"));
+            model->StripPunctuation({0, 10}, ".,-abcd.()"));
+  EXPECT_EQ(std::make_pair(0, 6), model->StripPunctuation({0, 6}, "(abcd)"));
+  EXPECT_EQ(std::make_pair(1, 5), model->StripPunctuation({0, 6}, "[abcd]"));
+  EXPECT_EQ(std::make_pair(1, 5), model->StripPunctuation({0, 6}, "{abcd}"));
+
+  // Empty result.
+  EXPECT_EQ(std::make_pair(0, 0), model->StripPunctuation({0, 1}, "&"));
+  EXPECT_EQ(std::make_pair(0, 0), model->StripPunctuation({0, 4}, "&-,}"));
 
   // Invalid indices
-  EXPECT_EQ(std::make_pair(-1, 523),
-            model->TestStripPunctuation({-1, 523}, "a"));
-  EXPECT_EQ(std::make_pair(-1, -1), model->TestStripPunctuation({-1, -1}, "a"));
-  EXPECT_EQ(std::make_pair(0, -1), model->TestStripPunctuation({0, -1}, "a"));
+  EXPECT_EQ(std::make_pair(-1, 523), model->StripPunctuation({-1, 523}, "a"));
+  EXPECT_EQ(std::make_pair(-1, -1), model->StripPunctuation({-1, -1}, "a"));
+  EXPECT_EQ(std::make_pair(0, -1), model->StripPunctuation({0, -1}, "a"));
 }
 
 TEST(TextClassificationModelTest, SuggestSelectionNoCrashWithJunk) {
@@ -232,14 +229,14 @@ TEST(TextClassificationModelTest, ClassifyText) {
   EXPECT_EQ("other",
             FindBestResult(model->ClassifyText(
                 "this afternoon Barack Obama gave a speech at", {15, 27})));
-  EXPECT_EQ("email",
+  EXPECT_EQ("other",
             FindBestResult(model->ClassifyText("you@android.com", {0, 15})));
-  EXPECT_EQ("email", FindBestResult(model->ClassifyText(
+  EXPECT_EQ("other", FindBestResult(model->ClassifyText(
                          "Contact me at you@android.com", {14, 29})));
   EXPECT_EQ("phone", FindBestResult(model->ClassifyText(
                          "Call me at (800) 123-456 today", {11, 24})));
-  EXPECT_EQ("url", FindBestResult(model->ClassifyText(
-                       "Visit www.google.com every today!", {6, 20})));
+  EXPECT_EQ("other", FindBestResult(model->ClassifyText(
+                         "Visit www.google.com every today!", {6, 20})));
 
   // More lines.
   EXPECT_EQ("other",
@@ -247,7 +244,7 @@ TEST(TextClassificationModelTest, ClassifyText) {
                 "this afternoon Barack Obama gave a speech at|Visit "
                 "www.google.com every today!|Call me at (800) 123-456 today.",
                 {15, 27})));
-  EXPECT_EQ("url",
+  EXPECT_EQ("other",
             FindBestResult(model->ClassifyText(
                 "this afternoon Barack Obama gave a speech at|Visit "
                 "www.google.com every today!|Call me at (800) 123-456 today.",
@@ -259,7 +256,8 @@ TEST(TextClassificationModelTest, ClassifyText) {
                 {90, 103})));
 
   // Single word.
-  EXPECT_EQ("other", FindBestResult(model->ClassifyText("Obama", {0, 5})));
+  EXPECT_EQ("other",
+            FindBestResult(model->ClassifyText("Barack Obama", {0, 12})));
   EXPECT_EQ("other", FindBestResult(model->ClassifyText("asdf", {0, 4})));
   EXPECT_EQ("<INVALID RESULTS>",
             FindBestResult(model->ClassifyText("asdf", {0, 0})));

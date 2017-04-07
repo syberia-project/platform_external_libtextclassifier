@@ -22,6 +22,7 @@
 
 #include "base.h"
 #include "smartselect/types.h"
+#include "util/strings/stringpiece.h"
 #include "unicode/regex.h"
 
 namespace libtextclassifier {
@@ -72,7 +73,7 @@ class TokenFeatureExtractor {
 
  protected:
   // Hashes given token to given number of buckets.
-  int HashToken(const std::string& token) const;
+  int HashToken(StringPiece token) const;
 
   // Extracts the charactergram features from the token.
   std::vector<int> ExtractCharactergramFeatures(const Token& token) const;

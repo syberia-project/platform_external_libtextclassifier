@@ -146,6 +146,19 @@ message FeatureProcessorOptions {
   // If true, span boundaries will be snapped to containing tokens and not
   // required to exactly match token boundaries.
   optional bool snap_label_span_boundaries_to_containing_tokens = 18;
+
+  // Range of codepoints start - end, where end is exclusive.
+  message CodepointRange {
+    optional int32 start = 1;
+    optional int32 end = 2;
+  }
+
+  // A set of codepoint ranges supported by the model.
+  repeated CodepointRange supported_codepoint_ranges = 23;
+
+  // Minimum ratio of supported codepoints in the input context. If the ratio
+  // is lower than this, the feature computation will fail.
+  optional float min_supported_codepoint_ratio = 24 [default = 0.0];
 };
 
 extend nlp_core.EmbeddingNetworkProto {
