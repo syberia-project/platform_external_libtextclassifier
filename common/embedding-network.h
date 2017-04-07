@@ -22,6 +22,7 @@
 
 #include "common/embedding-network-params.h"
 #include "common/feature-extractor.h"
+#include "common/vector-span.h"
 #include "util/base/integral_types.h"
 #include "util/base/logging.h"
 #include "util/base/macros.h"
@@ -54,8 +55,7 @@ class EmbeddingNetwork {
           quant_type_(source_matrix.quant_type),
           data_(source_matrix.elements),
           row_size_in_bytes_(GetRowSizeInBytes(cols_, quant_type_)),
-          quant_scales_(source_matrix.quant_scales) {
-    }
+          quant_scales_(source_matrix.quant_scales) {}
 
     // Returns vocabulary size; one embedding for each vocabulary element.
     int size() const { return rows_; }
@@ -133,8 +133,7 @@ class EmbeddingNetwork {
     // at address data.  Note: the underlying data should be alive for at least
     // the lifetime of this VectorWrapper object.  That's trivially true if data
     // points to statically allocated data :)
-    VectorWrapper(const float *data, int size)
-        : data_(data), size_(size) {}
+    VectorWrapper(const float *data, int size) : data_(data), size_(size) {}
 
     int size() const { return size_; }
 
@@ -176,16 +175,47 @@ class EmbeddingNetwork {
                           const std::vector<float> extra_inputs,
                           Vector *scores) const;
 
- private:
-  // Computes the softmax scores (prior to normalization) from the concatenated
-  // representation.  Returns true on success, false on error.
-  template <typename ScaleAdderClass>
-  bool FinishComputeFinalScores(const Vector &concat, Vector *scores) const;
-
   // Constructs the concatenated input embedding vector in place in output
   // vector concat.  Returns true on success, false on error.
   bool ConcatEmbeddings(const std::vector<FeatureVector> &features,
                         Vector *concat) const;
+
+  // Sums embeddings for all features from |feature_vector| and adds result
+  // to values from the array pointed-to by |output|.  Embeddings for continuous
+  // features are weighted by the feature weight.
+  //
+  // NOTE: output should point to an array of EmbeddingSize(es_index) floats.
+  bool GetEmbedding(const FeatureVector &feature_vector, int es_index,
+                    float *embedding) const;
+
+  // Runs the feed-forward neural network for |input| and computes logits for
+  // softmax layer.
+  bool ComputeLogits(const Vector &input, Vector *scores) const;
+
+  // Same as above but uses a view of the feature vector.
+  bool ComputeLogits(const VectorSpan<float> &input, Vector *scores) const;
+
+  // Returns the size (the number of columns) of the embedding space es_index.
+  int EmbeddingSize(int es_index) const;
+
+ private:
+  // Builds an embedding for given feature vector, and places it from
+  // concat_offset to the concat vector.
+  bool GetEmbeddingInternal(const FeatureVector &feature_vector,
+                            EmbeddingMatrix *embedding_matrix,
+                            int concat_offset, float *concat,
+                            int embedding_size) const;
+
+  // Templated function that computes the logit scores given the concatenated
+  // input embeddings.
+  bool ComputeLogitsInternal(const VectorSpan<float> &concat,
+                             Vector *scores) const;
+
+  // Computes the softmax scores (prior to normalization) from the concatenated
+  // representation.  Returns true on success, false on error.
+  template <typename ScaleAdderClass>
+  bool FinishComputeFinalScoresInternal(const VectorSpan<float> &concat,
+                                        Vector *scores) const;
 
   // Set to true on successful construction, false otherwise.
   bool valid_ = false;

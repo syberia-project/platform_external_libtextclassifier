@@ -40,7 +40,7 @@ TEST(TokenFeatureExtractorTest, ExtractAscii) {
   std::vector<int> sparse_features;
   std::vector<float> dense_features;
 
-  extractor.Extract(Token{"Hello", 0, 5, true}, &sparse_features,
+  extractor.Extract(Token{"Hello", 0, 5}, true, &sparse_features,
                     &dense_features);
 
   EXPECT_THAT(sparse_features,
@@ -68,7 +68,7 @@ TEST(TokenFeatureExtractorTest, ExtractAscii) {
 
   sparse_features.clear();
   dense_features.clear();
-  extractor.Extract(Token{"world!", 23, 29, false}, &sparse_features,
+  extractor.Extract(Token{"world!", 23, 29}, false, &sparse_features,
                     &dense_features);
 
   EXPECT_THAT(sparse_features,
@@ -110,7 +110,7 @@ TEST(TokenFeatureExtractorTest, ExtractUnicode) {
   std::vector<int> sparse_features;
   std::vector<float> dense_features;
 
-  extractor.Extract(Token{"Hělló", 0, 5, true}, &sparse_features,
+  extractor.Extract(Token{"Hělló", 0, 5}, true, &sparse_features,
                     &dense_features);
 
   EXPECT_THAT(sparse_features,
@@ -138,7 +138,7 @@ TEST(TokenFeatureExtractorTest, ExtractUnicode) {
 
   sparse_features.clear();
   dense_features.clear();
-  extractor.Extract(Token{"world!", 23, 29, false}, &sparse_features,
+  extractor.Extract(Token{"world!", 23, 29}, false, &sparse_features,
                     &dense_features);
 
   EXPECT_THAT(sparse_features,
@@ -179,25 +179,25 @@ TEST(TokenFeatureExtractorTest, ICUCaseFeature) {
 
   std::vector<int> sparse_features;
   std::vector<float> dense_features;
-  extractor.Extract(Token{"Hělló", 0, 5, true}, &sparse_features,
+  extractor.Extract(Token{"Hělló", 0, 5}, true, &sparse_features,
                     &dense_features);
   EXPECT_THAT(dense_features, testing::ElementsAreArray({1.0}));
 
   sparse_features.clear();
   dense_features.clear();
-  extractor.Extract(Token{"world!", 23, 29, false}, &sparse_features,
+  extractor.Extract(Token{"world!", 23, 29}, false, &sparse_features,
                     &dense_features);
   EXPECT_THAT(dense_features, testing::ElementsAreArray({-1.0}));
 
   sparse_features.clear();
   dense_features.clear();
-  extractor.Extract(Token{"Ř", 23, 29, false}, &sparse_features,
+  extractor.Extract(Token{"Ř", 23, 29}, false, &sparse_features,
                     &dense_features);
   EXPECT_THAT(dense_features, testing::ElementsAreArray({1.0}));
 
   sparse_features.clear();
   dense_features.clear();
-  extractor.Extract(Token{"ř", 23, 29, false}, &sparse_features,
+  extractor.Extract(Token{"ř", 23, 29}, false, &sparse_features,
                     &dense_features);
   EXPECT_THAT(dense_features, testing::ElementsAreArray({-1.0}));
 }
@@ -212,15 +212,15 @@ TEST(TokenFeatureExtractorTest, DigitRemapping) {
 
   std::vector<int> sparse_features;
   std::vector<float> dense_features;
-  extractor.Extract(Token{"9:30am", 0, 6, true}, &sparse_features,
+  extractor.Extract(Token{"9:30am", 0, 6}, true, &sparse_features,
                     &dense_features);
 
   std::vector<int> sparse_features2;
-  extractor.Extract(Token{"5:32am", 0, 6, true}, &sparse_features2,
+  extractor.Extract(Token{"5:32am", 0, 6}, true, &sparse_features2,
                     &dense_features);
   EXPECT_THAT(sparse_features, testing::ElementsAreArray(sparse_features2));
 
-  extractor.Extract(Token{"10:32am", 0, 6, true}, &sparse_features2,
+  extractor.Extract(Token{"10:32am", 0, 6}, true, &sparse_features2,
                     &dense_features);
   EXPECT_THAT(sparse_features,
               testing::Not(testing::ElementsAreArray(sparse_features2)));
@@ -236,15 +236,15 @@ TEST(TokenFeatureExtractorTest, DigitRemappingUnicode) {
 
   std::vector<int> sparse_features;
   std::vector<float> dense_features;
-  extractor.Extract(Token{"9:30am", 0, 6, true}, &sparse_features,
+  extractor.Extract(Token{"9:30am", 0, 6}, true, &sparse_features,
                     &dense_features);
 
   std::vector<int> sparse_features2;
-  extractor.Extract(Token{"5:32am", 0, 6, true}, &sparse_features2,
+  extractor.Extract(Token{"5:32am", 0, 6}, true, &sparse_features2,
                     &dense_features);
   EXPECT_THAT(sparse_features, testing::ElementsAreArray(sparse_features2));
 
-  extractor.Extract(Token{"10:32am", 0, 6, true}, &sparse_features2,
+  extractor.Extract(Token{"10:32am", 0, 6}, true, &sparse_features2,
                     &dense_features);
   EXPECT_THAT(sparse_features,
               testing::Not(testing::ElementsAreArray(sparse_features2)));
@@ -262,22 +262,22 @@ TEST(TokenFeatureExtractorTest, RegexFeatures) {
 
   std::vector<int> sparse_features;
   std::vector<float> dense_features;
-  extractor.Extract(Token{"abCde", 0, 6, true}, &sparse_features,
+  extractor.Extract(Token{"abCde", 0, 6}, true, &sparse_features,
                     &dense_features);
   EXPECT_THAT(dense_features, testing::ElementsAreArray({-1.0, -1.0}));
 
   dense_features.clear();
-  extractor.Extract(Token{"abcde", 0, 6, true}, &sparse_features,
+  extractor.Extract(Token{"abcde", 0, 6}, true, &sparse_features,
                     &dense_features);
   EXPECT_THAT(dense_features, testing::ElementsAreArray({1.0, -1.0}));
 
   dense_features.clear();
-  extractor.Extract(Token{"12c45", 0, 6, true}, &sparse_features,
+  extractor.Extract(Token{"12c45", 0, 6}, true, &sparse_features,
                     &dense_features);
   EXPECT_THAT(dense_features, testing::ElementsAreArray({-1.0, -1.0}));
 
   dense_features.clear();
-  extractor.Extract(Token{"12345", 0, 6, true}, &sparse_features,
+  extractor.Extract(Token{"12345", 0, 6}, true, &sparse_features,
                     &dense_features);
   EXPECT_THAT(dense_features, testing::ElementsAreArray({-1.0, 1.0}));
 }
@@ -294,7 +294,7 @@ TEST(TokenFeatureExtractorTest, ExtractTooLongWord) {
   // Test that this runs. ASAN should catch problems.
   std::vector<int> sparse_features;
   std::vector<float> dense_features;
-  extractor.Extract(Token{"abcdefghijklmnopqřstuvwxyz", 0, 0, true},
+  extractor.Extract(Token{"abcdefghijklmnopqřstuvwxyz", 0, 0}, true,
                     &sparse_features, &dense_features);
 
   EXPECT_THAT(sparse_features,
@@ -325,13 +325,13 @@ TEST(TokenFeatureExtractorTest, ExtractAsciiUnicodeMatches) {
         "x", "Hello", "Hey,", "Hi", ""}) {
     std::vector<int> sparse_features_unicode;
     std::vector<float> dense_features_unicode;
-    extractor_unicode.Extract(Token{input, 0, 0, true},
+    extractor_unicode.Extract(Token{input, 0, 0}, true,
                               &sparse_features_unicode,
                               &dense_features_unicode);
 
     std::vector<int> sparse_features_ascii;
     std::vector<float> dense_features_ascii;
-    extractor_ascii.Extract(Token{input, 0, 0, true}, &sparse_features_ascii,
+    extractor_ascii.Extract(Token{input, 0, 0}, true, &sparse_features_ascii,
                             &dense_features_ascii);
 
     EXPECT_THAT(sparse_features_unicode, sparse_features_ascii) << input;
@@ -352,7 +352,7 @@ TEST(TokenFeatureExtractorTest, ExtractForPadToken) {
   std::vector<int> sparse_features;
   std::vector<float> dense_features;
 
-  extractor.Extract(Token(), &sparse_features, &dense_features);
+  extractor.Extract(Token(), false, &sparse_features, &dense_features);
 
   EXPECT_THAT(sparse_features,
               testing::ElementsAreArray({extractor.HashToken("<PAD>")}));

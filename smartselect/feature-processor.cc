@@ -93,8 +93,7 @@ void SplitTokensOnSelectionBoundaries(CodepointSpan selection,
       for (const auto& split_point : split_points) {
         Token new_token(token_word.UTF8Substring(last_start, split_point),
                         current_pos,
-                        current_pos + std::distance(last_start, split_point),
-                        /*is_in_span=*/false);
+                        current_pos + std::distance(last_start, split_point));
 
         last_start = split_point;
         current_pos = new_token.end;
@@ -169,7 +168,13 @@ void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
 
 }  // namespace internal
 
-const char* const FeatureProcessor::kFeatureTypeName = "chargram_continuous";
+std::string FeatureProcessor::GetDefaultCollection() const {
+  if (options_.default_collection() >= options_.collections_size()) {
+    TC_LOG(ERROR) << "No collections specified. Returning empty string.";
+    return "";
+  }
+  return options_.collections(options_.default_collection());
+}
 
 std::vector<Token> FeatureProcessor::Tokenize(
     const std::string& utf8_text) const {
@@ -177,7 +182,7 @@ std::vector<Token> FeatureProcessor::Tokenize(
 }
 
 bool FeatureProcessor::LabelToSpan(
-    const int label, const std::vector<Token>& tokens,
+    const int label, const VectorSpan<Token>& tokens,
     std::pair<CodepointIndex, CodepointIndex>* span) const {
   if (tokens.size() != GetNumContextTokens()) {
     return false;
@@ -283,7 +288,8 @@ TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
   TokenIndex end_token = kInvalidIndex;
   for (int i = 0; i < selectable_tokens.size(); ++i) {
     if (codepoint_start <= selectable_tokens[i].start &&
-        codepoint_end >= selectable_tokens[i].end) {
+        codepoint_end >= selectable_tokens[i].end &&
+        !selectable_tokens[i].is_padding) {
       if (start_token == kInvalidIndex) {
         start_token = i;
       }
@@ -386,194 +392,16 @@ int FeatureProcessor::FindCenterToken(CodepointSpan span,
   }
 }
 
-bool FeatureProcessor::GetFeatures(
-    const std::string& context, CodepointSpan input_span,
-    std::vector<nlp_core::FeatureVector>* features,
-    std::vector<float>* extra_features,
+bool FeatureProcessor::SelectionLabelSpans(
+    const VectorSpan<Token> tokens,
     std::vector<CodepointSpan>* selection_label_spans) const {
-  return FeatureProcessor::GetFeaturesAndLabels(
-      context, input_span, {kInvalidIndex, kInvalidIndex}, "", features,
-      extra_features, selection_label_spans, /*selection_label=*/nullptr,
-      /*selection_codepoint_label=*/nullptr, /*classification_label=*/nullptr);
-}
-
-bool FeatureProcessor::GetFeaturesAndLabels(
-    const std::string& context, CodepointSpan input_span,
-    CodepointSpan label_span, const std::string& label_collection,
-    std::vector<nlp_core::FeatureVector>* features,
-    std::vector<float>* extra_features,
-    std::vector<CodepointSpan>* selection_label_spans, int* selection_label,
-    CodepointSpan* selection_codepoint_label, int* classification_label) const {
-  if (features == nullptr) {
-    return false;
-  }
-  *features =
-      std::vector<nlp_core::FeatureVector>(options_.context_size() * 2 + 1);
-
-  std::vector<Token> input_tokens = Tokenize(context);
-
-  if (options_.split_tokens_on_selection_boundaries()) {
-    internal::SplitTokensOnSelectionBoundaries(input_span, &input_tokens);
-  }
-
-  if (options_.only_use_line_with_click()) {
-    internal::StripTokensFromOtherLines(context, input_span, &input_tokens);
-  }
-
-  const int click_pos = FindCenterToken(input_span, input_tokens);
-  if (click_pos == kInvalidIndex) {
-    TC_LOG(ERROR) << "Could not extract click position.";
-    return false;
-  }
-
-  if (options_.min_supported_codepoint_ratio() > 0) {
-    const float supported_codepoint_ratio =
-        SupportedCodepointsRatio(click_pos, input_tokens);
-    if (supported_codepoint_ratio < options_.min_supported_codepoint_ratio()) {
-      TC_LOG(INFO) << "Not enough supported codepoints in the context: "
-                   << supported_codepoint_ratio;
+  for (int i = 0; i < label_to_selection_.size(); ++i) {
+    CodepointSpan span;
+    if (!LabelToSpan(i, tokens, &span)) {
+      TC_LOG(ERROR) << "Could not convert label to span: " << i;
       return false;
     }
-  }
-
-  std::vector<Token> output_tokens;
-  bool status = ComputeFeatures(click_pos, input_tokens, input_span, features,
-                                extra_features, &output_tokens);
-  if (!status) {
-    TC_LOG(ERROR) << "Feature computation failed.";
-    return false;
-  }
-
-  if (selection_label != nullptr) {
-    status = SpanToLabel(label_span, output_tokens, selection_label);
-    if (!status) {
-      TC_LOG(ERROR) << "Could not convert selection span to label.";
-      return false;
-    }
-  }
-
-  if (selection_codepoint_label != nullptr) {
-    *selection_codepoint_label = label_span;
-  }
-
-  if (selection_label_spans != nullptr) {
-    for (int i = 0; i < label_to_selection_.size(); ++i) {
-      CodepointSpan span;
-      status = LabelToSpan(i, output_tokens, &span);
-      if (!status) {
-        TC_LOG(ERROR) << "Could not convert label to span: " << i;
-        return false;
-      }
-      selection_label_spans->push_back(span);
-    }
-  }
-
-  if (classification_label != nullptr) {
-    *classification_label = CollectionToLabel(label_collection);
-  }
-
-  return true;
-}
-
-bool FeatureProcessor::GetFeaturesAndLabels(
-    const std::string& context, CodepointSpan input_span,
-    CodepointSpan label_span, const std::string& label_collection,
-    std::vector<std::vector<std::pair<int, float>>>* features,
-    std::vector<float>* extra_features,
-    std::vector<CodepointSpan>* selection_label_spans, int* selection_label,
-    CodepointSpan* selection_codepoint_label, int* classification_label) const {
-  if (features == nullptr) {
-    return false;
-  }
-  if (extra_features == nullptr) {
-    return false;
-  }
-
-  std::vector<nlp_core::FeatureVector> feature_vectors;
-  bool result = GetFeaturesAndLabels(
-      context, input_span, label_span, label_collection, &feature_vectors,
-      extra_features, selection_label_spans, selection_label,
-      selection_codepoint_label, classification_label);
-
-  if (!result) {
-    return false;
-  }
-
-  features->clear();
-  for (int i = 0; i < feature_vectors.size(); ++i) {
-    features->emplace_back();
-    for (int j = 0; j < feature_vectors[i].size(); ++j) {
-      nlp_core::FloatFeatureValue feature_value(feature_vectors[i].value(j));
-      (*features)[i].push_back({feature_value.id, feature_value.weight});
-    }
-  }
-
-  return true;
-}
-
-bool FeatureProcessor::ComputeFeatures(
-    int click_pos, const std::vector<Token>& tokens,
-    CodepointSpan selected_span, std::vector<nlp_core::FeatureVector>* features,
-    std::vector<float>* extra_features,
-    std::vector<Token>* output_tokens) const {
-  int dropout_left = 0;
-  int dropout_right = 0;
-  if (options_.context_dropout_probability() > 0.0) {
-    // Determine how much context to drop.
-    bool status = GetContextDropoutRange(&dropout_left, &dropout_right);
-    if (!status) {
-      return false;
-    }
-  }
-
-  int feature_index = 0;
-  output_tokens->reserve(options_.context_size() * 2 + 1);
-  const int num_extra_features =
-      static_cast<int>(options_.extract_case_feature()) +
-      static_cast<int>(options_.extract_selection_mask_feature());
-  extra_features->reserve((options_.context_size() * 2 + 1) *
-                          num_extra_features);
-  for (int i = click_pos - options_.context_size();
-       i <= click_pos + options_.context_size(); ++i, ++feature_index) {
-    std::vector<int> sparse_features;
-    std::vector<float> dense_features;
-
-    const bool is_valid_token = i >= 0 && i < tokens.size();
-
-    bool is_dropped = false;
-    if (options_.context_dropout_probability() > 0.0) {
-      if (i < click_pos - options_.context_size() + dropout_left) {
-        is_dropped = true;
-      } else if (i > click_pos + options_.context_size() - dropout_right) {
-        is_dropped = true;
-      }
-    }
-
-    if (is_valid_token && !is_dropped) {
-      Token token(tokens[i]);
-      token.is_in_span = token.start >= selected_span.first &&
-                         token.end <= selected_span.second;
-      feature_extractor_.Extract(token, &sparse_features, &dense_features);
-      output_tokens->push_back(tokens[i]);
-    } else {
-      feature_extractor_.Extract(Token(), &sparse_features, &dense_features);
-      // This adds an empty string for each missing context token to exactly
-      // match the input tokens to the network.
-      output_tokens->emplace_back();
-    }
-
-    for (int feature_id : sparse_features) {
-      const int64 feature_value =
-          nlp_core::FloatFeatureValue(feature_id, 1.0 / sparse_features.size())
-              .discrete_value;
-      (*features)[feature_index].add(
-          const_cast<nlp_core::NumericFeatureType*>(&feature_type_),
-          feature_value);
-    }
-
-    for (float value : dense_features) {
-      extra_features->push_back(value);
-    }
+    selection_label_spans->push_back(span);
   }
   return true;
 }
@@ -680,25 +508,129 @@ void FeatureProcessor::MakeLabelMaps() {
   }
 }
 
-bool FeatureProcessor::GetContextDropoutRange(int* dropout_left,
-                                              int* dropout_right) const {
-  std::uniform_real_distribution<> uniform01_draw(0, 1);
-  if (uniform01_draw(*random_) < options_.context_dropout_probability()) {
-    if (options_.use_variable_context_dropout()) {
-      std::uniform_int_distribution<> uniform_context_draw(
-          0, options_.context_size());
-      // Select how much to drop in the range: [zero; context size]
-      *dropout_left = uniform_context_draw(*random_);
-      *dropout_right = uniform_context_draw(*random_);
-    } else {
-      // Drop all context.
+void FeatureProcessor::TokenizeAndFindClick(const std::string& context,
+                                            CodepointSpan input_span,
+                                            std::vector<Token>* tokens,
+                                            int* click_pos) const {
+  TC_CHECK(tokens != nullptr);
+  *tokens = Tokenize(context);
+
+  if (options_.split_tokens_on_selection_boundaries()) {
+    internal::SplitTokensOnSelectionBoundaries(input_span, tokens);
+  }
+
+  if (options_.only_use_line_with_click()) {
+    internal::StripTokensFromOtherLines(context, input_span, tokens);
+  }
+
+  int local_click_pos;
+  if (click_pos == nullptr) {
+    click_pos = &local_click_pos;
+  }
+  *click_pos = FindCenterToken(input_span, *tokens);
+}
+
+namespace internal {
+
+void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
+                      std::vector<Token>* tokens, int* click_pos) {
+  int right_context_needed = relative_click_span.second + context_size;
+  if (*click_pos + right_context_needed + 1 >= tokens->size()) {
+    // Pad max the context size.
+    const int num_pad_tokens = std::min(
+        context_size, static_cast<int>(*click_pos + right_context_needed + 1 -
+                                       tokens->size()));
+    std::vector<Token> pad_tokens(num_pad_tokens);
+    tokens->insert(tokens->end(), pad_tokens.begin(), pad_tokens.end());
+  } else if (*click_pos + right_context_needed + 1 < tokens->size() - 1) {
+    // Strip unused tokens.
+    auto it = tokens->begin();
+    std::advance(it, *click_pos + right_context_needed + 1);
+    tokens->erase(it, tokens->end());
+  }
+
+  int left_context_needed = relative_click_span.first + context_size;
+  if (*click_pos < left_context_needed) {
+    // Pad max the context size.
+    const int num_pad_tokens =
+        std::min(context_size, left_context_needed - *click_pos);
+    std::vector<Token> pad_tokens(num_pad_tokens);
+    tokens->insert(tokens->begin(), pad_tokens.begin(), pad_tokens.end());
+    *click_pos += num_pad_tokens;
+  } else if (*click_pos > left_context_needed) {
+    // Strip unused tokens.
+    auto it = tokens->begin();
+    std::advance(it, *click_pos - left_context_needed);
+    *click_pos -= it - tokens->begin();
+    tokens->erase(tokens->begin(), it);
+  }
+}
+
+}  // namespace internal
+
+bool FeatureProcessor::ExtractFeatures(
+    const std::string& context, CodepointSpan input_span,
+    TokenSpan relative_click_span, const FeatureVectorFn& feature_vector_fn,
+    int feature_vector_size, std::vector<Token>* tokens, int* click_pos,
+    std::unique_ptr<CachedFeatures>* cached_features) const {
+  TokenizeAndFindClick(context, input_span, tokens, click_pos);
+
+  // If the default click method failed fails, let's try to do sub-token
+  // matching before we fail.
+  if (*click_pos == kInvalidIndex) {
+    *click_pos = internal::CenterTokenFromClick(input_span, *tokens);
+    if (*click_pos == kInvalidIndex) {
       return false;
     }
-  } else {
-    *dropout_left = 0;
-    *dropout_right = 0;
   }
+
+  internal::StripOrPadTokens(relative_click_span, options_.context_size(),
+                             tokens, click_pos);
+
+  if (options_.min_supported_codepoint_ratio() > 0) {
+    const float supported_codepoint_ratio =
+        SupportedCodepointsRatio(*click_pos, *tokens);
+    if (supported_codepoint_ratio < options_.min_supported_codepoint_ratio()) {
+      TC_LOG(INFO) << "Not enough supported codepoints in the context: "
+                   << supported_codepoint_ratio;
+      return false;
+    }
+  }
+
+  std::vector<std::vector<int>> sparse_features(tokens->size());
+  std::vector<std::vector<float>> dense_features(tokens->size());
+  for (int i = 0; i < tokens->size(); ++i) {
+    const Token& token = (*tokens)[i];
+    if (!feature_extractor_.Extract(token, token.IsContainedInSpan(input_span),
+                                    &(sparse_features[i]),
+                                    &(dense_features[i]))) {
+      TC_LOG(ERROR) << "Could not extract token's features: " << token;
+      return false;
+    }
+  }
+
+  cached_features->reset(new CachedFeatures(
+      *tokens, options_.context_size(), sparse_features, dense_features,
+      feature_vector_fn, feature_vector_size));
+
+  if (*cached_features == nullptr) {
+    return false;
+  }
+
+  if (options_.feature_version() == 0) {
+    (*cached_features)
+        ->SetV0FeatureMode(feature_vector_size -
+                           feature_extractor_.DenseFeaturesCount());
+  }
+
   return true;
+}
+
+int FeatureProcessor::PadContext(std::vector<Token>* tokens) const {
+  std::vector<Token> pad_tokens(options_.context_size());
+  tokens->insert(tokens->begin(), pad_tokens.begin(), pad_tokens.end());
+  tokens->insert(tokens->end(), pad_tokens.begin(), pad_tokens.end());
+  return options_.context_size();
 }
 
 }  // namespace libtextclassifier

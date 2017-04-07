@@ -48,8 +48,8 @@ bool InitNonQuantizedMatrix(const EmbeddingNetworkParams::Matrix &source_matrix,
   // Before we access the weights as floats, we need to check that they are
   // really floats, i.e., no quantization is used.
   if (!CheckNoQuantization(source_matrix)) return false;
-  const float *weights = reinterpret_cast<const float *>(
-      source_matrix.elements);
+  const float *weights =
+      reinterpret_cast<const float *>(source_matrix.elements);
   for (int r = 0; r < source_matrix.rows; ++r) {
     (*mat)[r] = EmbeddingNetwork::VectorWrapper(weights, source_matrix.cols);
     weights += source_matrix.cols;
@@ -86,7 +86,7 @@ template <typename ScaleAdderClass>
 bool SparseReluProductPlusBias(bool apply_relu,
                                const EmbeddingNetwork::Matrix &weights,
                                const EmbeddingNetwork::VectorWrapper &b,
-                               const EmbeddingNetwork::Vector &x,
+                               const VectorSpan<float> &x,
                                EmbeddingNetwork::Vector *y) {
   // Check that dimensions match.
   if ((x.size() != weights.size()) || weights.empty()) {
@@ -131,87 +131,127 @@ bool EmbeddingNetwork::ConcatEmbeddings(
 
   // "es_index" stands for "embedding space index".
   for (int es_index = 0; es_index < feature_vectors.size(); ++es_index) {
-    // Access is safe by es_index loop bounds, Invariant 2, and Invariant 3.
-    const int concat_offset = concat_offset_[es_index];
-
     // Access is safe by es_index loop bounds and Invariant 3.
-    const EmbeddingMatrix *embedding_matrix =
+    EmbeddingMatrix *const embedding_matrix =
         embedding_matrices_[es_index].get();
     if (embedding_matrix == nullptr) {
       // Should not happen, hence our terse log error message.
       TC_LOG(ERROR) << es_index;
       return false;
     }
-    const int embedding_dim = embedding_matrix->dim();
-    const bool is_quantized =
-        embedding_matrix->quant_type() != QuantizationType::NONE;
 
     // Access is safe due to es_index loop bounds.
     const FeatureVector &feature_vector = feature_vectors[es_index];
-    const int num_features = feature_vector.size();
-    for (int fi = 0; fi < num_features; ++fi) {
-      // Both accesses below are safe due to loop bounds for fi.
-      const FeatureType *feature_type = feature_vector.type(fi);
-      const FeatureValue feature_value = feature_vector.value(fi);
-      const int feature_offset =
-          concat_offset + feature_type->base() * embedding_dim;
 
-      // Code below updates max(0, embedding_dim) elements from concat, starting
-      // with index feature_offset.  Check below ensures these updates are safe.
-      if ((feature_offset < 0) ||
-          (feature_offset + embedding_dim > concat->size())) {
-        TC_LOG(ERROR) << es_index << "," << fi << ": " << feature_offset << " "
-                      << embedding_dim << " " << concat->size();
-        return false;
+    // Access is safe by es_index loop bounds, Invariant 2, and Invariant 3.
+    const int concat_offset = concat_offset_[es_index];
+
+    if (!GetEmbeddingInternal(feature_vector, embedding_matrix, concat_offset,
+                              concat->data(), concat->size())) {
+      TC_LOG(ERROR) << es_index;
+      return false;
+    }
+  }
+  return true;
+}
+
+bool EmbeddingNetwork::GetEmbedding(const FeatureVector &feature_vector,
+                                    int es_index, float *embedding) const {
+  EmbeddingMatrix *const embedding_matrix = embedding_matrices_[es_index].get();
+  if (embedding_matrix == nullptr) {
+    // Should not happen, hence our terse log error message.
+    TC_LOG(ERROR) << es_index;
+    return false;
+  }
+  return GetEmbeddingInternal(feature_vector, embedding_matrix, 0, embedding,
+                              embedding_matrices_[es_index]->dim());
+}
+
+bool EmbeddingNetwork::GetEmbeddingInternal(
+    const FeatureVector &feature_vector,
+    EmbeddingMatrix *const embedding_matrix, const int concat_offset,
+    float *concat, int concat_size) const {
+  const int embedding_dim = embedding_matrix->dim();
+  const bool is_quantized =
+      embedding_matrix->quant_type() != QuantizationType::NONE;
+  const int num_features = feature_vector.size();
+  for (int fi = 0; fi < num_features; ++fi) {
+    // Both accesses below are safe due to loop bounds for fi.
+    const FeatureType *feature_type = feature_vector.type(fi);
+    const FeatureValue feature_value = feature_vector.value(fi);
+    const int feature_offset =
+        concat_offset + feature_type->base() * embedding_dim;
+
+    // Code below updates max(0, embedding_dim) elements from concat, starting
+    // with index feature_offset.  Check below ensures these updates are safe.
+    if ((feature_offset < 0) ||
+        (feature_offset + embedding_dim > concat_size)) {
+      TC_LOG(ERROR) << fi << ": " << feature_offset << " " << embedding_dim
+                    << " " << concat_size;
+      return false;
+    }
+
+    // Pointer to float / uint8 weights for relevant embedding.
+    const void *embedding_data;
+
+    // Multiplier for each embedding weight.
+    float multiplier;
+
+    if (feature_type->is_continuous()) {
+      // Continuous features (encoded as FloatFeatureValue).
+      FloatFeatureValue float_feature_value(feature_value);
+      const int id = float_feature_value.id;
+      embedding_matrix->get_embedding(id, &embedding_data, &multiplier);
+      multiplier *= float_feature_value.weight;
+    } else {
+      // Discrete features: every present feature has implicit value 1.0.
+      // Hence, after we grab the multiplier below, we don't multiply it by
+      // any weight.
+      embedding_matrix->get_embedding(feature_value, &embedding_data,
+                                      &multiplier);
+    }
+
+    // Weighted embeddings will be added starting from this address.
+    float *concat_ptr = concat + feature_offset;
+
+    if (is_quantized) {
+      const uint8 *quant_weights =
+          reinterpret_cast<const uint8 *>(embedding_data);
+      for (int i = 0; i < embedding_dim; ++i, ++quant_weights, ++concat_ptr) {
+        // 128 is bias for UINT8 quantization, only one we currently support.
+        *concat_ptr += (static_cast<int>(*quant_weights) - 128) * multiplier;
       }
-
-      // Pointer to float / uint8 weights for relevant embedding.
-      const void *embedding_data;
-
-      // Multiplier for each embedding weight.
-      float multiplier;
-
-      if (feature_type->is_continuous()) {
-        // Continuous features (encoded as FloatFeatureValue).
-        FloatFeatureValue float_feature_value(feature_value);
-        const int id = float_feature_value.id;
-        embedding_matrix->get_embedding(id, &embedding_data, &multiplier);
-        multiplier *= float_feature_value.weight;
-      } else {
-        // Discrete features: every present feature has implicit value 1.0.
-        // Hence, after we grab the multiplier below, we don't multiply it by
-        // any weight.
-        embedding_matrix->get_embedding(feature_value, &embedding_data,
-                                        &multiplier);
-      }
-
-      // Weighted embeddings will be added starting from this address.
-      float *concat_ptr = concat->data() + feature_offset;
-
-      if (is_quantized) {
-        const uint8 *quant_weights =
-            reinterpret_cast<const uint8 *>(embedding_data);
-        for (int i = 0; i < embedding_dim; ++i, ++quant_weights, ++concat_ptr) {
-          // 128 is bias for UINT8 quantization, only one we currently support.
-          *concat_ptr += (static_cast<int>(*quant_weights) - 128) * multiplier;
-        }
-      } else {
-        const float *weights = reinterpret_cast<const float *>(embedding_data);
-        for (int i = 0; i < embedding_dim; ++i, ++weights, ++concat_ptr) {
-          *concat_ptr += *weights * multiplier;
-        }
+    } else {
+      const float *weights = reinterpret_cast<const float *>(embedding_data);
+      for (int i = 0; i < embedding_dim; ++i, ++weights, ++concat_ptr) {
+        *concat_ptr += *weights * multiplier;
       }
     }
   }
   return true;
 }
 
+bool EmbeddingNetwork::ComputeLogits(const VectorSpan<float> &input,
+                                     Vector *scores) const {
+  return EmbeddingNetwork::ComputeLogitsInternal(input, scores);
+}
+
+bool EmbeddingNetwork::ComputeLogits(const Vector &input,
+                                     Vector *scores) const {
+  return EmbeddingNetwork::ComputeLogitsInternal(input, scores);
+}
+
+bool EmbeddingNetwork::ComputeLogitsInternal(const VectorSpan<float> &input,
+                                             Vector *scores) const {
+  return FinishComputeFinalScoresInternal<SimpleAdder>(input, scores);
+}
+
 template <typename ScaleAdderClass>
-bool EmbeddingNetwork::FinishComputeFinalScores(const Vector &concat,
-                                                Vector *scores) const {
+bool EmbeddingNetwork::FinishComputeFinalScoresInternal(
+    const VectorSpan<float> &input, Vector *scores) const {
   Vector h0(hidden_bias_[0].size());
   bool success = SparseReluProductPlusBias<ScaleAdderClass>(
-      false, hidden_weights_[0], hidden_bias_[0], concat, &h0);
+      false, hidden_weights_[0], hidden_bias_[0], input, &h0);
   if (!success) return false;
 
   if (hidden_weights_.size() == 1) {  // 1 hidden layer
@@ -259,7 +299,7 @@ bool EmbeddingNetwork::ComputeFinalScores(
   }
 
   scores->resize(softmax_bias_.size());
-  return FinishComputeFinalScores<SimpleAdder>(concat, scores);
+  return ComputeLogits(concat, scores);
 }
 
 EmbeddingNetwork::EmbeddingNetwork(const EmbeddingNetworkParams *model) {
@@ -329,6 +369,10 @@ EmbeddingNetwork::EmbeddingNetwork(const EmbeddingNetworkParams *model) {
 
   // Everything looks good.
   valid_ = true;
+}
+
+int EmbeddingNetwork::EmbeddingSize(int es_index) const {
+  return embedding_matrices_[es_index]->dim();
 }
 
 }  // namespace nlp_core

@@ -207,7 +207,7 @@ std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeaturesUnicode(
   return result;
 }
 
-bool TokenFeatureExtractor::Extract(const Token& token,
+bool TokenFeatureExtractor::Extract(const Token& token, bool is_in_span,
                                     std::vector<int>* sparse_features,
                                     std::vector<float>* dense_features) const {
   if (sparse_features == nullptr || dense_features == nullptr) {
@@ -235,7 +235,7 @@ bool TokenFeatureExtractor::Extract(const Token& token,
   }
 
   if (options_.extract_selection_mask_feature) {
-    if (token.is_in_span) {
+    if (is_in_span) {
       dense_features->push_back(1.0);
     } else {
       if (options_.unicode_aware_features) {
@@ -265,25 +265,6 @@ bool TokenFeatureExtractor::Extract(const Token& token,
       } else {
         dense_features->push_back(-1.0);
       }
-    }
-  }
-  return true;
-}
-
-bool TokenFeatureExtractor::Extract(
-    const std::vector<Token>& tokens,
-    std::vector<std::vector<int>>* sparse_features,
-    std::vector<std::vector<float>>* dense_features) const {
-  if (sparse_features == nullptr || dense_features == nullptr) {
-    return false;
-  }
-
-  sparse_features->resize(tokens.size());
-  dense_features->resize(tokens.size());
-  for (size_t i = 0; i < tokens.size(); i++) {
-    if (!Extract(tokens[i], &((*sparse_features)[i]),
-                 &((*dense_features)[i]))) {
-      return false;
     }
   }
   return true;

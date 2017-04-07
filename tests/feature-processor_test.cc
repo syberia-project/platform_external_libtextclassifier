@@ -26,83 +26,83 @@ using testing::ElementsAreArray;
 using testing::FloatEq;
 
 TEST(FeatureProcessorTest, SplitTokensOnSelectionBoundariesMiddle) {
-  std::vector<Token> tokens{Token("Hělló", 0, 5, false),
-                            Token("fěěbař@google.com", 6, 23, false),
-                            Token("heře!", 24, 29, false)};
+  std::vector<Token> tokens{Token("Hělló", 0, 5),
+                            Token("fěěbař@google.com", 6, 23),
+                            Token("heře!", 24, 29)};
 
   internal::SplitTokensOnSelectionBoundaries({9, 12}, &tokens);
 
   // clang-format off
   EXPECT_THAT(tokens, ElementsAreArray(
-                          {Token("Hělló", 0, 5, false),
-                           Token("fěě", 6, 9, false),
-                           Token("bař", 9, 12, false),
-                           Token("@google.com", 12, 23, false),
-                           Token("heře!", 24, 29, false)}));
+                          {Token("Hělló", 0, 5),
+                           Token("fěě", 6, 9),
+                           Token("bař", 9, 12),
+                           Token("@google.com", 12, 23),
+                           Token("heře!", 24, 29)}));
   // clang-format on
 }
 
 TEST(FeatureProcessorTest, SplitTokensOnSelectionBoundariesBegin) {
-  std::vector<Token> tokens{Token("Hělló", 0, 5, false),
-                            Token("fěěbař@google.com", 6, 23, false),
-                            Token("heře!", 24, 29, false)};
+  std::vector<Token> tokens{Token("Hělló", 0, 5),
+                            Token("fěěbař@google.com", 6, 23),
+                            Token("heře!", 24, 29)};
 
   internal::SplitTokensOnSelectionBoundaries({6, 12}, &tokens);
 
   // clang-format off
   EXPECT_THAT(tokens, ElementsAreArray(
-                          {Token("Hělló", 0, 5, false),
-                           Token("fěěbař", 6, 12, false),
-                           Token("@google.com", 12, 23, false),
-                           Token("heře!", 24, 29, false)}));
+                          {Token("Hělló", 0, 5),
+                           Token("fěěbař", 6, 12),
+                           Token("@google.com", 12, 23),
+                           Token("heře!", 24, 29)}));
   // clang-format on
 }
 
 TEST(FeatureProcessorTest, SplitTokensOnSelectionBoundariesEnd) {
-  std::vector<Token> tokens{Token("Hělló", 0, 5, false),
-                            Token("fěěbař@google.com", 6, 23, false),
-                            Token("heře!", 24, 29, false)};
+  std::vector<Token> tokens{Token("Hělló", 0, 5),
+                            Token("fěěbař@google.com", 6, 23),
+                            Token("heře!", 24, 29)};
 
   internal::SplitTokensOnSelectionBoundaries({9, 23}, &tokens);
 
   // clang-format off
   EXPECT_THAT(tokens, ElementsAreArray(
-                          {Token("Hělló", 0, 5, false),
-                           Token("fěě", 6, 9, false),
-                           Token("bař@google.com", 9, 23, false),
-                           Token("heře!", 24, 29, false)}));
+                          {Token("Hělló", 0, 5),
+                           Token("fěě", 6, 9),
+                           Token("bař@google.com", 9, 23),
+                           Token("heře!", 24, 29)}));
   // clang-format on
 }
 
 TEST(FeatureProcessorTest, SplitTokensOnSelectionBoundariesWhole) {
-  std::vector<Token> tokens{Token("Hělló", 0, 5, false),
-                            Token("fěěbař@google.com", 6, 23, false),
-                            Token("heře!", 24, 29, false)};
+  std::vector<Token> tokens{Token("Hělló", 0, 5),
+                            Token("fěěbař@google.com", 6, 23),
+                            Token("heře!", 24, 29)};
 
   internal::SplitTokensOnSelectionBoundaries({6, 23}, &tokens);
 
   // clang-format off
   EXPECT_THAT(tokens, ElementsAreArray(
-                          {Token("Hělló", 0, 5, false),
-                           Token("fěěbař@google.com", 6, 23, false),
-                           Token("heře!", 24, 29, false)}));
+                          {Token("Hělló", 0, 5),
+                           Token("fěěbař@google.com", 6, 23),
+                           Token("heře!", 24, 29)}));
   // clang-format on
 }
 
 TEST(FeatureProcessorTest, SplitTokensOnSelectionBoundariesCrossToken) {
-  std::vector<Token> tokens{Token("Hělló", 0, 5, false),
-                            Token("fěěbař@google.com", 6, 23, false),
-                            Token("heře!", 24, 29, false)};
+  std::vector<Token> tokens{Token("Hělló", 0, 5),
+                            Token("fěěbař@google.com", 6, 23),
+                            Token("heře!", 24, 29)};
 
   internal::SplitTokensOnSelectionBoundaries({2, 9}, &tokens);
 
   // clang-format off
   EXPECT_THAT(tokens, ElementsAreArray(
-                          {Token("Hě", 0, 2, false),
-                           Token("lló", 2, 5, false),
-                           Token("fěě", 6, 9, false),
-                           Token("bař@google.com", 9, 23, false),
-                           Token("heře!", 24, 29, false)}));
+                          {Token("Hě", 0, 2),
+                           Token("lló", 2, 5),
+                           Token("fěě", 6, 9),
+                           Token("bař@google.com", 9, 23),
+                           Token("heře!", 24, 29)}));
   // clang-format on
 }
 
@@ -269,98 +269,25 @@ TEST(FeatureProcessorTest, SpanToLabel) {
   EXPECT_EQ(label2, label3);
 }
 
-TEST(FeatureProcessorTest, GetFeaturesWithContextDropout) {
-  FeatureProcessorOptions options;
-  options.set_num_buckets(10);
-  options.set_context_size(7);
-  options.set_max_selection_span(7);
-  options.add_chargram_orders(1);
-  options.set_tokenize_on_space(true);
-  options.set_context_dropout_probability(0.5);
-  options.set_use_variable_context_dropout(true);
-  TokenizationCodepointRange* config =
-      options.add_tokenization_codepoint_config();
-  config->set_start(32);
-  config->set_end(33);
-  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
-  FeatureProcessor feature_processor(options);
-
-  // Test that two subsequent runs with random context dropout produce
-  // different features.
-  feature_processor.SetRandom(new std::mt19937);
-
-  std::vector<std::vector<std::pair<int, float>>> features;
-  std::vector<std::vector<std::pair<int, float>>> features2;
-  std::vector<float> extra_features;
-  std::vector<CodepointSpan> selection_label_spans;
-  int selection_label;
-  CodepointSpan selection_codepoint_label;
-  int classification_label;
-  EXPECT_TRUE(feature_processor.GetFeaturesAndLabels(
-      "1 2 3 c o n t e x t X c o n t e x t 1 2 3", {20, 21}, {20, 21}, "",
-      &features, &extra_features, &selection_label_spans, &selection_label,
-      &selection_codepoint_label, &classification_label));
-  EXPECT_TRUE(feature_processor.GetFeaturesAndLabels(
-      "1 2 3 c o n t e x t X c o n t e x t 1 2 3", {20, 21}, {20, 21}, "",
-      &features2, &extra_features, &selection_label_spans, &selection_label,
-      &selection_codepoint_label, &classification_label));
-
-  EXPECT_NE(features, features2);
-}
-
-TEST(FeatureProcessorTest, GetFeaturesWithLongerContext) {
-  FeatureProcessorOptions options;
-  options.set_num_buckets(10);
-  options.set_context_size(9);
-  options.set_max_selection_span(7);
-  options.add_chargram_orders(1);
-  options.set_tokenize_on_space(true);
-  TokenizationCodepointRange* config =
-      options.add_tokenization_codepoint_config();
-  config->set_start(32);
-  config->set_end(33);
-  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
-  FeatureProcessor feature_processor(options);
-
-  std::vector<std::vector<std::pair<int, float>>> features;
-  std::vector<float> extra_features;
-  std::vector<CodepointSpan> selection_label_spans;
-  int selection_label;
-  CodepointSpan selection_codepoint_label;
-  int classification_label;
-  EXPECT_TRUE(feature_processor.GetFeaturesAndLabels(
-      "1 2 3 c o n t e x t X c o n t e x t 1 2 3", {20, 21}, {20, 21}, "",
-      &features, &extra_features, &selection_label_spans, &selection_label,
-      &selection_codepoint_label, &classification_label));
-  EXPECT_EQ(19, features.size());
-
-  // Should pad the string.
-  EXPECT_TRUE(feature_processor.GetFeaturesAndLabels(
-      "X", {0, 1}, {0, 1}, "", &features, &extra_features,
-      &selection_label_spans, &selection_label, &selection_codepoint_label,
-      &classification_label));
-  EXPECT_EQ(19, features.size());
-}
-
 TEST(FeatureProcessorTest, CenterTokenFromClick) {
   int token_index;
 
   // Exactly aligned indices.
   token_index = internal::CenterTokenFromClick(
-      {6, 11}, {Token("Hělló", 0, 5, false), Token("world", 6, 11, false),
-                Token("heře!", 12, 17, false)});
+      {6, 11},
+      {Token("Hělló", 0, 5), Token("world", 6, 11), Token("heře!", 12, 17)});
   EXPECT_EQ(token_index, 1);
 
   // Click is contained in a token.
   token_index = internal::CenterTokenFromClick(
-      {13, 17}, {Token("Hělló", 0, 5, false), Token("world", 6, 11, false),
-                 Token("heře!", 12, 17, false)});
+      {13, 17},
+      {Token("Hělló", 0, 5), Token("world", 6, 11), Token("heře!", 12, 17)});
   EXPECT_EQ(token_index, 2);
 
   // Click spans two tokens.
   token_index = internal::CenterTokenFromClick(
-      {6, 17}, {Token("Hělló", 0, 5, false), Token("world", 6, 11, false),
-                Token("heře!", 12, 17, false)});
+      {6, 17},
+      {Token("Hělló", 0, 5), Token("world", 6, 11), Token("heře!", 12, 17)});
   EXPECT_EQ(token_index, kInvalidIndex);
 }
 
@@ -369,78 +296,42 @@ TEST(FeatureProcessorTest, CenterTokenFromMiddleOfSelection) {
 
   // Selection of length 3. Exactly aligned indices.
   token_index = internal::CenterTokenFromMiddleOfSelection(
-      {7, 27}, {Token("Token1", 0, 6, false), Token("Token2", 7, 13, false),
-                Token("Token3", 14, 20, false), Token("Token4", 21, 27, false),
-                Token("Token5", 28, 34, false)});
+      {7, 27},
+      {Token("Token1", 0, 6), Token("Token2", 7, 13), Token("Token3", 14, 20),
+       Token("Token4", 21, 27), Token("Token5", 28, 34)});
   EXPECT_EQ(token_index, 2);
 
   // Selection of length 1 token. Exactly aligned indices.
   token_index = internal::CenterTokenFromMiddleOfSelection(
-      {21, 27}, {Token("Token1", 0, 6, false), Token("Token2", 7, 13, false),
-                 Token("Token3", 14, 20, false), Token("Token4", 21, 27, false),
-                 Token("Token5", 28, 34, false)});
+      {21, 27},
+      {Token("Token1", 0, 6), Token("Token2", 7, 13), Token("Token3", 14, 20),
+       Token("Token4", 21, 27), Token("Token5", 28, 34)});
   EXPECT_EQ(token_index, 3);
 
   // Selection marks sub-token range, with no tokens in it.
   token_index = internal::CenterTokenFromMiddleOfSelection(
-      {29, 33}, {Token("Token1", 0, 6, false), Token("Token2", 7, 13, false),
-                 Token("Token3", 14, 20, false), Token("Token4", 21, 27, false),
-                 Token("Token5", 28, 34, false)});
+      {29, 33},
+      {Token("Token1", 0, 6), Token("Token2", 7, 13), Token("Token3", 14, 20),
+       Token("Token4", 21, 27), Token("Token5", 28, 34)});
   EXPECT_EQ(token_index, kInvalidIndex);
 
   // Selection of length 2. Sub-token indices.
   token_index = internal::CenterTokenFromMiddleOfSelection(
-      {3, 25}, {Token("Token1", 0, 6, false), Token("Token2", 7, 13, false),
-                Token("Token3", 14, 20, false), Token("Token4", 21, 27, false),
-                Token("Token5", 28, 34, false)});
+      {3, 25},
+      {Token("Token1", 0, 6), Token("Token2", 7, 13), Token("Token3", 14, 20),
+       Token("Token4", 21, 27), Token("Token5", 28, 34)});
   EXPECT_EQ(token_index, 1);
 
   // Selection of length 1. Sub-token indices.
   token_index = internal::CenterTokenFromMiddleOfSelection(
-      {22, 34}, {Token("Token1", 0, 6, false), Token("Token2", 7, 13, false),
-                 Token("Token3", 14, 20, false), Token("Token4", 21, 27, false),
-                 Token("Token5", 28, 34, false)});
+      {22, 34},
+      {Token("Token1", 0, 6), Token("Token2", 7, 13), Token("Token3", 14, 20),
+       Token("Token4", 21, 27), Token("Token5", 28, 34)});
   EXPECT_EQ(token_index, 4);
 
   // Some invalid ones.
   token_index = internal::CenterTokenFromMiddleOfSelection({7, 27}, {});
   EXPECT_EQ(token_index, -1);
-}
-
-TEST(FeatureProcessorTest, GetFeaturesForSharing) {
-  FeatureProcessorOptions options;
-  options.set_num_buckets(10);
-  options.set_context_size(9);
-  options.set_max_selection_span(7);
-  options.add_chargram_orders(1);
-  options.set_tokenize_on_space(true);
-  options.set_center_token_selection_method(
-      FeatureProcessorOptions::CENTER_TOKEN_MIDDLE_OF_SELECTION);
-  options.set_only_use_line_with_click(true);
-  options.set_split_tokens_on_selection_boundaries(true);
-  options.set_extract_selection_mask_feature(true);
-  TokenizationCodepointRange* config =
-      options.add_tokenization_codepoint_config();
-  config->set_start(32);
-  config->set_end(33);
-  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
-  config = options.add_tokenization_codepoint_config();
-  config->set_start(10);
-  config->set_end(11);
-  config->set_role(TokenizationCodepointRange::WHITESPACE_SEPARATOR);
-  FeatureProcessor feature_processor(options);
-
-  std::vector<std::vector<std::pair<int, float>>> features;
-  std::vector<float> extra_features;
-  std::vector<CodepointSpan> selection_label_spans;
-  int selection_label;
-  CodepointSpan selection_codepoint_label;
-  int classification_label;
-  EXPECT_TRUE(feature_processor.GetFeaturesAndLabels(
-      "line 1\nline2\nsome entity\n line 4", {13, 24}, {13, 24}, "", &features,
-      &extra_features, &selection_label_spans, &selection_label,
-      &selection_codepoint_label, &classification_label));
-  EXPECT_EQ(19, features.size());
 }
 
 TEST(FeatureProcessorTest, SupportedCodepointsRatio) {
@@ -488,26 +379,144 @@ TEST(FeatureProcessorTest, SupportedCodepointsRatio) {
   EXPECT_FALSE(feature_processor.IsCodepointSupported(10001));
   EXPECT_TRUE(feature_processor.IsCodepointSupported(25000));
 
-  std::vector<nlp_core::FeatureVector> features;
+  std::vector<Token> tokens;
+  int click_pos;
   std::vector<float> extra_features;
+  std::unique_ptr<CachedFeatures> cached_features;
+
+  auto feature_fn = [](const std::vector<int>& sparse_features,
+                       const std::vector<float>& dense_features,
+                       float* embedding) { return true; };
 
   options.set_min_supported_codepoint_ratio(0.0);
-  feature_processor = TestingFeatureProcessor(options);
-  EXPECT_TRUE(feature_processor.GetFeatures("ěěě řřř eee", {4, 7}, &features,
-                                            &extra_features,
-                                            /*selection_label_spans=*/nullptr));
+  TestingFeatureProcessor feature_processor2(options);
+  EXPECT_TRUE(feature_processor2.ExtractFeatures("ěěě řřř eee", {4, 7}, {0, 0},
+                                                 feature_fn, 2, &tokens,
+                                                 &click_pos, &cached_features));
 
   options.set_min_supported_codepoint_ratio(0.2);
-  feature_processor = TestingFeatureProcessor(options);
-  EXPECT_TRUE(feature_processor.GetFeatures("ěěě řřř eee", {4, 7}, &features,
-                                            &extra_features,
-                                            /*selection_label_spans=*/nullptr));
+  TestingFeatureProcessor feature_processor3(options);
+  EXPECT_TRUE(feature_processor3.ExtractFeatures("ěěě řřř eee", {4, 7}, {0, 0},
+                                                 feature_fn, 2, &tokens,
+                                                 &click_pos, &cached_features));
 
   options.set_min_supported_codepoint_ratio(0.5);
-  feature_processor = TestingFeatureProcessor(options);
-  EXPECT_FALSE(feature_processor.GetFeatures(
-      "ěěě řřř eee", {4, 7}, &features, &extra_features,
-      /*selection_label_spans=*/nullptr));
+  TestingFeatureProcessor feature_processor4(options);
+  EXPECT_FALSE(feature_processor4.ExtractFeatures(
+      "ěěě řřř eee", {4, 7}, {0, 0}, feature_fn, 2, &tokens, &click_pos,
+      &cached_features));
+}
+
+TEST(FeatureProcessorTest, StripUnusedTokensWithNoRelativeClick) {
+  std::vector<Token> tokens_orig{
+      Token("0", 0, 0), Token("1", 0, 0), Token("2", 0, 0),  Token("3", 0, 0),
+      Token("4", 0, 0), Token("5", 0, 0), Token("6", 0, 0),  Token("7", 0, 0),
+      Token("8", 0, 0), Token("9", 0, 0), Token("10", 0, 0), Token("11", 0, 0),
+      Token("12", 0, 0)};
+
+  std::vector<Token> tokens;
+  int click_index;
+
+  // Try to click first token and see if it gets padded from left.
+  tokens = tokens_orig;
+  click_index = 0;
+  internal::StripOrPadTokens({0, 0}, 2, &tokens, &click_index);
+  // clang-format off
+  EXPECT_EQ(tokens, std::vector<Token>({Token(),
+                                        Token(),
+                                        Token("0", 0, 0),
+                                        Token("1", 0, 0),
+                                        Token("2", 0, 0)}));
+  // clang-format on
+  EXPECT_EQ(click_index, 2);
+
+  // When we click the second token nothing should get padded.
+  tokens = tokens_orig;
+  click_index = 2;
+  internal::StripOrPadTokens({0, 0}, 2, &tokens, &click_index);
+  // clang-format off
+  EXPECT_EQ(tokens, std::vector<Token>({Token("0", 0, 0),
+                                        Token("1", 0, 0),
+                                        Token("2", 0, 0),
+                                        Token("3", 0, 0),
+                                        Token("4", 0, 0)}));
+  // clang-format on
+  EXPECT_EQ(click_index, 2);
+
+  // When we click the last token tokens should get padded from the right.
+  tokens = tokens_orig;
+  click_index = 12;
+  internal::StripOrPadTokens({0, 0}, 2, &tokens, &click_index);
+  // clang-format off
+  EXPECT_EQ(tokens, std::vector<Token>({Token("10", 0, 0),
+                                        Token("11", 0, 0),
+                                        Token("12", 0, 0),
+                                        Token(),
+                                        Token()}));
+  // clang-format on
+  EXPECT_EQ(click_index, 2);
+}
+
+TEST(FeatureProcessorTest, StripUnusedTokensWithRelativeClick) {
+  std::vector<Token> tokens_orig{
+      Token("0", 0, 0), Token("1", 0, 0), Token("2", 0, 0),  Token("3", 0, 0),
+      Token("4", 0, 0), Token("5", 0, 0), Token("6", 0, 0),  Token("7", 0, 0),
+      Token("8", 0, 0), Token("9", 0, 0), Token("10", 0, 0), Token("11", 0, 0),
+      Token("12", 0, 0)};
+
+  std::vector<Token> tokens;
+  int click_index;
+
+  // Try to click first token and see if it gets padded from left to maximum
+  // context_size.
+  tokens = tokens_orig;
+  click_index = 0;
+  internal::StripOrPadTokens({2, 3}, 2, &tokens, &click_index);
+  // clang-format off
+  EXPECT_EQ(tokens, std::vector<Token>({Token(),
+                                        Token(),
+                                        Token("0", 0, 0),
+                                        Token("1", 0, 0),
+                                        Token("2", 0, 0),
+                                        Token("3", 0, 0),
+                                        Token("4", 0, 0),
+                                        Token("5", 0, 0)}));
+  // clang-format on
+  EXPECT_EQ(click_index, 2);
+
+  // Clicking to the middle with enough context should not produce any padding.
+  tokens = tokens_orig;
+  click_index = 6;
+  internal::StripOrPadTokens({3, 1}, 2, &tokens, &click_index);
+  // clang-format off
+  EXPECT_EQ(tokens, std::vector<Token>({Token("1", 0, 0),
+                                        Token("2", 0, 0),
+                                        Token("3", 0, 0),
+                                        Token("4", 0, 0),
+                                        Token("5", 0, 0),
+                                        Token("6", 0, 0),
+                                        Token("7", 0, 0),
+                                        Token("8", 0, 0),
+                                        Token("9", 0, 0)}));
+  // clang-format on
+  EXPECT_EQ(click_index, 5);
+
+  // Clicking at the end should pad right to maximum context_size.
+  tokens = tokens_orig;
+  click_index = 11;
+  internal::StripOrPadTokens({3, 1}, 2, &tokens, &click_index);
+  // clang-format off
+  EXPECT_EQ(tokens, std::vector<Token>({Token("6", 0, 0),
+                                        Token("7", 0, 0),
+                                        Token("8", 0, 0),
+                                        Token("9", 0, 0),
+                                        Token("10", 0, 0),
+                                        Token("11", 0, 0),
+                                        Token("12", 0, 0),
+                                        Token(),
+                                        Token()}));
+  // clang-format on
+  EXPECT_EQ(click_index, 5);
 }
 
 }  // namespace
