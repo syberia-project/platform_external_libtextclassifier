@@ -18,6 +18,7 @@
 
 #include "util/base/logging.h"
 #include "util/hash/farmhash.h"
+#include "util/strings/stringpiece.h"
 #include "util/utf8/unicodetext.h"
 #include "unicode/regex.h"
 #include "unicode/uchar.h"
@@ -67,7 +68,7 @@ TokenFeatureExtractor::TokenFeatureExtractor(
   }
 }
 
-int TokenFeatureExtractor::HashToken(const std::string& token) const {
+int TokenFeatureExtractor::HashToken(StringPiece token) const {
   return tcfarmhash::Fingerprint64(token) % options_.num_buckets;
 }
 
@@ -83,7 +84,7 @@ std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeatures(
 std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeaturesAscii(
     const Token& token) const {
   std::vector<int> result;
-  if (token.is_padding) {
+  if (token.is_padding || token.value.empty()) {
     result.push_back(HashToken("<PAD>"));
   } else {
     std::string word;
@@ -113,13 +114,15 @@ std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeaturesAscii(
     for (int chargram_order : options_.chargram_orders) {
       if (chargram_order == 1) {
         for (int i = 1; i < feature_word.size() - 1; ++i) {
-          result.push_back(HashToken(feature_word.substr(i, 1)));
+          result.push_back(
+              HashToken(StringPiece(feature_word, /*offset=*/i, /*len=*/1)));
         }
       } else {
         for (int i = 0;
              i < static_cast<int>(feature_word.size()) - chargram_order + 1;
              ++i) {
-          result.push_back(HashToken(feature_word.substr(i, chargram_order)));
+          result.push_back(HashToken(
+              StringPiece(feature_word, /*offset=*/i, /*len=*/chargram_order)));
         }
       }
     }
@@ -130,7 +133,7 @@ std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeaturesAscii(
 std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeaturesUnicode(
     const Token& token) const {
   std::vector<int> result;
-  if (token.is_padding) {
+  if (token.is_padding || token.value.empty()) {
     result.push_back(HashToken("<PAD>"));
   } else {
     UnicodeText word = UTF8ToUnicodeText(token.value, /*do_copy=*/false);
@@ -182,11 +185,11 @@ std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeaturesUnicode(
       UnicodeText::const_iterator it_chargram_end = it_start;
       bool chargram_is_complete = true;
       for (int i = 0; i < chargram_order; ++i) {
-        ++it_chargram_end;
-        if (it_chargram_end >= it_end) {
+        if (it_chargram_end == it_end) {
           chargram_is_complete = false;
           break;
         }
+        ++it_chargram_end;
       }
       if (!chargram_is_complete) {
         continue;
@@ -194,8 +197,10 @@ std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeaturesUnicode(
 
       for (; it_chargram_end <= it_end;
            ++it_chargram_start, ++it_chargram_end) {
-        result.push_back(HashToken(feature_word_unicode.UTF8Substring(
-            it_chargram_start, it_chargram_end)));
+        const int length_bytes =
+            it_chargram_end.utf8_data() - it_chargram_start.utf8_data();
+        result.push_back(HashToken(
+            StringPiece(it_chargram_start.utf8_data(), length_bytes)));
       }
     }
   }

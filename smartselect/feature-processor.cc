@@ -426,6 +426,16 @@ bool FeatureProcessor::GetFeaturesAndLabels(
     return false;
   }
 
+  if (options_.min_supported_codepoint_ratio() > 0) {
+    const float supported_codepoint_ratio =
+        SupportedCodepointsRatio(click_pos, input_tokens);
+    if (supported_codepoint_ratio < options_.min_supported_codepoint_ratio()) {
+      TC_LOG(INFO) << "Not enough supported codepoints in the context: "
+                   << supported_codepoint_ratio;
+      return false;
+    }
+  }
+
   std::vector<Token> output_tokens;
   bool status = ComputeFeatures(click_pos, input_tokens, input_span, features,
                                 extra_features, &output_tokens);
@@ -566,6 +576,72 @@ bool FeatureProcessor::ComputeFeatures(
     }
   }
   return true;
+}
+
+void FeatureProcessor::PrepareSupportedCodepointRanges(
+    const std::vector<FeatureProcessorOptions::CodepointRange>&
+        codepoint_ranges) {
+  supported_codepoint_ranges_.clear();
+  supported_codepoint_ranges_.reserve(codepoint_ranges.size());
+  for (const FeatureProcessorOptions::CodepointRange& range :
+       codepoint_ranges) {
+    supported_codepoint_ranges_.push_back(
+        CodepointRange(range.start(), range.end()));
+  }
+
+  std::sort(supported_codepoint_ranges_.begin(),
+            supported_codepoint_ranges_.end(),
+            [](const CodepointRange& a, const CodepointRange& b) {
+              return a.start < b.start;
+            });
+}
+
+float FeatureProcessor::SupportedCodepointsRatio(
+    int click_pos, const std::vector<Token>& tokens) const {
+  int num_supported = 0;
+  int num_total = 0;
+  for (int i = click_pos - options_.context_size();
+       i <= click_pos + options_.context_size(); ++i) {
+    const bool is_valid_token = i >= 0 && i < tokens.size();
+    if (is_valid_token) {
+      const UnicodeText value =
+          UTF8ToUnicodeText(tokens[i].value, /*do_copy=*/false);
+      for (auto codepoint : value) {
+        if (IsCodepointSupported(codepoint)) {
+          ++num_supported;
+        }
+        ++num_total;
+      }
+    }
+  }
+  return static_cast<float>(num_supported) / static_cast<float>(num_total);
+}
+
+bool FeatureProcessor::IsCodepointSupported(int codepoint) const {
+  auto it = std::lower_bound(supported_codepoint_ranges_.begin(),
+                             supported_codepoint_ranges_.end(), codepoint,
+                             [](const CodepointRange& range, int codepoint) {
+                               // This function compares range with the
+                               // codepoint for the purpose of finding the first
+                               // greater or equal range. Because of the use of
+                               // std::lower_bound it needs to return true when
+                               // range < codepoint; the first time it will
+                               // return false the lower bound is found and
+                               // returned.
+                               //
+                               // It might seem weird that the condition is
+                               // range < codepoint here but when codepoint ==
+                               // range.end it means it's actually just outside
+                               // of the range, thus the range is less than the
+                               // codepoint.
+                               return range.end <= codepoint;
+                             });
+  if (it != supported_codepoint_ranges_.end() && it->start <= codepoint &&
+      it->end > codepoint) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 int FeatureProcessor::CollectionToLabel(const std::string& collection) const {

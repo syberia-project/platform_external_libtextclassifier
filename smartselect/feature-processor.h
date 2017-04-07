@@ -79,6 +79,9 @@ class FeatureProcessor {
                     options.tokenization_codepoint_config().end()}),
         random_(new std::mt19937(std::random_device()())) {
     MakeLabelMaps();
+    PrepareSupportedCodepointRanges(
+        {options.supported_codepoint_ranges().begin(),
+         options.supported_codepoint_ranges().end()});
   }
 
   explicit FeatureProcessor(const std::string& serialized_options)
@@ -139,6 +142,15 @@ class FeatureProcessor {
   void SetRandom(std::mt19937* new_random) { random_.reset(new_random); }
 
  protected:
+  // Represents a codepoint range [start, end).
+  struct CodepointRange {
+    int32 start;
+    int32 end;
+
+    CodepointRange(int32 arg_start, int32 arg_end)
+        : start(arg_start), end(arg_end) {}
+  };
+
   // Extracts features for given word.
   std::vector<int> GetWordFeatures(const std::string& word) const;
 
@@ -188,6 +200,18 @@ class FeatureProcessor {
   int FindCenterToken(CodepointSpan span,
                       const std::vector<Token>& tokens) const;
 
+  void PrepareSupportedCodepointRanges(
+      const std::vector<FeatureProcessorOptions::CodepointRange>&
+          codepoint_range_configs);
+
+  // Returns the ratio of supported codepoints to total number of codepoints in
+  // the input context around given click position.
+  float SupportedCodepointsRatio(int click_pos,
+                                 const std::vector<Token>& tokens) const;
+
+  // Returns true if given codepoint is supported.
+  bool IsCodepointSupported(int codepoint) const;
+
  private:
   FeatureProcessorOptions options_;
 
@@ -205,6 +229,10 @@ class FeatureProcessor {
   std::map<std::string, int> collection_to_label_;
 
   Tokenizer tokenizer_;
+
+  // Codepoint ranges that define what codepoints are supported by the model.
+  // NOTE: Must be sorted.
+  std::vector<CodepointRange> supported_codepoint_ranges_;
 
   // Source of randomness.
   mutable std::unique_ptr<std::mt19937> random_;
