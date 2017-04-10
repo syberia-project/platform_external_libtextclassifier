@@ -48,43 +48,31 @@ struct Token {
   CodepointIndex start;
   CodepointIndex end;
 
-  // Whether the token was in the input span.
-  bool is_in_span;
-
   // Whether the token is a padding token.
   bool is_padding;
 
   // Default constructor constructs the padding-token.
   Token()
-      : value(""),
-        start(kInvalidIndex),
-        end(kInvalidIndex),
-        is_in_span(false),
-        is_padding(true) {}
+      : value(""), start(kInvalidIndex), end(kInvalidIndex), is_padding(true) {}
 
   Token(const std::string& arg_value, CodepointIndex arg_start,
         CodepointIndex arg_end)
-      : Token(arg_value, arg_start, arg_end, false) {}
-
-  Token(const std::string& arg_value, CodepointIndex arg_start,
-        CodepointIndex arg_end, bool is_in_span)
-      : value(arg_value),
-        start(arg_start),
-        end(arg_end),
-        is_in_span(is_in_span),
-        is_padding(false) {}
+      : value(arg_value), start(arg_start), end(arg_end), is_padding(false) {}
 
   bool operator==(const Token& other) const {
     return value == other.value && start == other.start && end == other.end &&
-           is_in_span == other.is_in_span && is_padding == other.is_padding;
+           is_padding == other.is_padding;
+  }
+
+  bool IsContainedInSpan(CodepointSpan span) const {
+    return start >= span.first && end <= span.second;
   }
 };
 
 // Pretty-printing function for Token.
 inline std::ostream& operator<<(std::ostream& os, const Token& token) {
   return os << "Token(\"" << token.value << "\", " << token.start << ", "
-            << token.end << ", is_in_span=" << token.is_in_span
-            << ", is_padding=" << token.is_padding << ")";
+            << token.end << ", is_padding=" << token.is_padding << ")";
 }
 
 }  // namespace libtextclassifier

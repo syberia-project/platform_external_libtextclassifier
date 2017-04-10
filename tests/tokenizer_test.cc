@@ -104,8 +104,8 @@ TEST(TokenizerTest, TokenizeOnSpace) {
   TestingTokenizer tokenizer(configs);
   std::vector<Token> tokens = tokenizer.Tokenize("Hello world!");
 
-  EXPECT_THAT(tokens, ElementsAreArray({Token("Hello", 0, 5, false),
-                                        Token("world!", 6, 12, false)}));
+  EXPECT_THAT(tokens,
+              ElementsAreArray({Token("Hello", 0, 5), Token("world!", 6, 12)}));
 }
 
 TEST(TokenizerTest, TokenizeComplex) {
@@ -243,17 +243,17 @@ TEST(TokenizerTest, TokenizeComplex) {
   // clang-format off
   EXPECT_THAT(
       tokens,
-      ElementsAreArray({Token("問", 0, 1, false),
-                        Token("少", 1, 2, false),
-                        Token("目", 2, 3, false),
-                        Token("hello", 4, 9, false),
-                        Token("木", 10, 11, false),
-                        Token("輸", 11, 12, false),
-                        Token("ย", 12, 13, false),
-                        Token("า", 13, 14, false),
-                        Token("ม", 14, 15, false),
-                        Token("き", 15, 16, false),
-                        Token("ゃ", 16, 17, false)}));
+      ElementsAreArray({Token("問", 0, 1),
+                        Token("少", 1, 2),
+                        Token("目", 2, 3),
+                        Token("hello", 4, 9),
+                        Token("木", 10, 11),
+                        Token("輸", 11, 12),
+                        Token("ย", 12, 13),
+                        Token("า", 13, 14),
+                        Token("ม", 14, 15),
+                        Token("き", 15, 16),
+                        Token("ゃ", 16, 17)}));
   // clang-format on
 }
 
