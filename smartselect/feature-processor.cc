@@ -24,6 +24,9 @@
 #include "util/base/logging.h"
 #include "util/strings/utf8.h"
 #include "util/utf8/unicodetext.h"
+#include "unicode/brkiter.h"
+#include "unicode/errorcode.h"
+#include "unicode/uchar.h"
 
 namespace libtextclassifier {
 
@@ -178,7 +181,22 @@ std::string FeatureProcessor::GetDefaultCollection() const {
 
 std::vector<Token> FeatureProcessor::Tokenize(
     const std::string& utf8_text) const {
-  return tokenizer_.Tokenize(utf8_text);
+  if (options_.tokenization_type() ==
+      libtextclassifier::FeatureProcessorOptions::INTERNAL_TOKENIZER) {
+    return tokenizer_.Tokenize(utf8_text);
+  } else if (options_.tokenization_type() ==
+             libtextclassifier::FeatureProcessorOptions::ICU) {
+    std::vector<Token> result;
+    if (ICUTokenize(utf8_text, &result)) {
+      return result;
+    } else {
+      return {};
+    }
+  } else {
+    TC_LOG(ERROR) << "Unknown tokenization type specified. Using "
+                     "internal.";
+    return tokenizer_.Tokenize(utf8_text);
+  }
 }
 
 bool FeatureProcessor::LabelToSpan(
@@ -278,7 +296,6 @@ int FeatureProcessor::TokenSpanToLabel(const TokenSpan& span) const {
   }
 }
 
-// Converts a codepoint span to a token span in the given list of tokens.
 TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
                                    CodepointSpan codepoint_span) {
   const int codepoint_start = std::get<0>(codepoint_span);
@@ -297,6 +314,12 @@ TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
     }
   }
   return {start_token, end_token};
+}
+
+CodepointSpan TokenSpanToCodepointSpan(
+    const std::vector<Token>& selectable_tokens, TokenSpan token_span) {
+  return {selectable_tokens[token_span.first].start,
+          selectable_tokens[token_span.second - 1].end};
 }
 
 namespace {
@@ -631,6 +654,51 @@ int FeatureProcessor::PadContext(std::vector<Token>* tokens) const {
   tokens->insert(tokens->begin(), pad_tokens.begin(), pad_tokens.end());
   tokens->insert(tokens->end(), pad_tokens.begin(), pad_tokens.end());
   return options_.context_size();
+}
+
+bool FeatureProcessor::ICUTokenize(const std::string& context,
+                                   std::vector<Token>* result) const {
+  icu::ErrorCode status;
+  icu::UnicodeString unicode_text = icu::UnicodeString::fromUTF8(context);
+  std::unique_ptr<icu::BreakIterator> break_iterator(
+      icu::BreakIterator::createWordInstance(icu::Locale("en"), status));
+  if (!status.isSuccess()) {
+    TC_LOG(ERROR) << "Break iterator did not initialize properly: "
+                  << status.errorName();
+    return false;
+  }
+
+  break_iterator->setText(unicode_text);
+
+  size_t last_break_index = 0;
+  size_t break_index = 0;
+  size_t last_unicode_index = 0;
+  size_t unicode_index = 0;
+  while ((break_index = break_iterator->next()) != icu::BreakIterator::DONE) {
+    icu::UnicodeString token(unicode_text, last_break_index,
+                             break_index - last_break_index);
+    int token_length = token.countChar32();
+    unicode_index = last_unicode_index + token_length;
+
+    std::string token_utf8;
+    token.toUTF8String(token_utf8);
+
+    bool is_whitespace = true;
+    for (int i = 0; i < token.length(); i++) {
+      if (!u_isWhitespace(token.char32At(i))) {
+        is_whitespace = false;
+      }
+    }
+
+    if (!is_whitespace || options_.icu_preserve_whitespace_tokens()) {
+      result->push_back(Token(token_utf8, last_unicode_index, unicode_index));
+    }
+
+    last_break_index = break_index;
+    last_unicode_index = unicode_index;
+  }
+
+  return result;
 }
 
 }  // namespace libtextclassifier

@@ -204,13 +204,13 @@ class TestingFeatureProcessor : public FeatureProcessor {
   using FeatureProcessor::SpanToLabel;
   using FeatureProcessor::SupportedCodepointsRatio;
   using FeatureProcessor::IsCodepointSupported;
+  using FeatureProcessor::ICUTokenize;
 };
 
 TEST(FeatureProcessorTest, SpanToLabel) {
   FeatureProcessorOptions options;
   options.set_context_size(1);
   options.set_max_selection_span(1);
-  options.set_tokenize_on_space(true);
   options.set_snap_label_span_boundaries_to_containing_tokens(false);
 
   TokenizationCodepointRange* config =
@@ -517,6 +517,46 @@ TEST(FeatureProcessorTest, StripUnusedTokensWithRelativeClick) {
                                         Token()}));
   // clang-format on
   EXPECT_EQ(click_index, 5);
+}
+
+TEST(FeatureProcessorTest, ICUTokenize) {
+  FeatureProcessorOptions options;
+  options.set_tokenization_type(
+      libtextclassifier::FeatureProcessorOptions::ICU);
+
+  TestingFeatureProcessor feature_processor(options);
+  std::vector<Token> tokens = feature_processor.Tokenize("พระบาทสมเด็จพระปรมิ");
+  ASSERT_EQ(tokens,
+            // clang-format off
+            std::vector<Token>({Token("พระบาท", 0, 6),
+                                Token("สมเด็จ", 6, 12),
+                                Token("พระ", 12, 15),
+                                Token("ปร", 15, 17),
+                                Token("มิ", 17, 19)}));
+  // clang-format on
+}
+
+TEST(FeatureProcessorTest, ICUTokenizeWithWhitespaces) {
+  FeatureProcessorOptions options;
+  options.set_tokenization_type(
+      libtextclassifier::FeatureProcessorOptions::ICU);
+  options.set_icu_preserve_whitespace_tokens(true);
+
+  TestingFeatureProcessor feature_processor(options);
+  std::vector<Token> tokens =
+      feature_processor.Tokenize("พระบาท สมเด็จ พระ ปร มิ");
+  ASSERT_EQ(tokens,
+            // clang-format off
+            std::vector<Token>({Token("พระบาท", 0, 6),
+                                Token(" ", 6, 7),
+                                Token("สมเด็จ", 7, 13),
+                                Token(" ", 13, 14),
+                                Token("พระ", 14, 17),
+                                Token(" ", 17, 18),
+                                Token("ปร", 18, 20),
+                                Token(" ", 20, 21),
+                                Token("มิ", 21, 23)}));
+  // clang-format on
 }
 
 }  // namespace
