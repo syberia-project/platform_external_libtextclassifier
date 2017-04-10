@@ -24,15 +24,24 @@
 #include <string>
 #include <vector>
 
-#include "common/feature-extractor.h"
+#include "smartselect/cached-features.h"
 #include "smartselect/text-classification-model.pb.h"
 #include "smartselect/token-feature-extractor.h"
 #include "smartselect/tokenizer.h"
 #include "smartselect/types.h"
+#include "util/base/logging.h"
 
 namespace libtextclassifier {
 
 constexpr int kInvalidLabel = -1;
+
+// Maps a vector of sparse features and a vector of dense features to a vector
+// of features that combines both.
+// The output is written to the memory location pointed to  by the last float*
+// argument.
+// Returns true on success false on failure.
+using FeatureVectorFn = std::function<bool(const std::vector<int>&,
+                                           const std::vector<float>&, float*)>;
 
 namespace internal {
 
@@ -61,23 +70,27 @@ int CenterTokenFromClick(CodepointSpan span, const std::vector<Token>& tokens);
 int CenterTokenFromMiddleOfSelection(
     CodepointSpan span, const std::vector<Token>& selectable_tokens);
 
+// Strips the tokens from the tokens vector that are not used for feature
+// extraction because they are out of scope, or pads them so that there is
+// enough tokens in the required context_size for all inferences with a click
+// in relative_click_span.
+void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
+                      std::vector<Token>* tokens, int* click_pos);
+
 }  // namespace internal
 
 TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
                                    CodepointSpan codepoint_span);
 
-// Takes care of preparing features for the FFModel.
+// Takes care of preparing features for the span prediction model.
 class FeatureProcessor {
  public:
   explicit FeatureProcessor(const FeatureProcessorOptions& options)
-      : options_(options),
-        feature_extractor_(
+      : feature_extractor_(
             internal::BuildTokenFeatureExtractorOptions(options)),
-        feature_type_(FeatureProcessor::kFeatureTypeName,
-                      options.num_buckets()),
+        options_(options),
         tokenizer_({options.tokenization_codepoint_config().begin(),
-                    options.tokenization_codepoint_config().end()}),
-        random_(new std::mt19937(std::random_device()())) {
+                    options.tokenization_codepoint_config().end()}) {
     MakeLabelMaps();
     PrepareSupportedCodepointRanges(
         {options.supported_codepoint_ranges().begin(),
@@ -91,37 +104,11 @@ class FeatureProcessor {
   // Tokenizes the input string using the selected tokenization method.
   std::vector<Token> Tokenize(const std::string& utf8_text) const;
 
-  bool GetFeatures(const std::string& context, CodepointSpan input_span,
-                   std::vector<nlp_core::FeatureVector>* features,
-                   std::vector<float>* extra_features,
-                   std::vector<CodepointSpan>* selection_label_spans) const;
-
-  // NOTE: If dropout is on, subsequent calls of this function with the same
-  // arguments might return different results.
-  bool GetFeaturesAndLabels(const std::string& context,
-                            CodepointSpan input_span, CodepointSpan label_span,
-                            const std::string& label_collection,
-                            std::vector<nlp_core::FeatureVector>* features,
-                            std::vector<float>* extra_features,
-                            std::vector<CodepointSpan>* selection_label_spans,
-                            int* selection_label,
-                            CodepointSpan* selection_codepoint_label,
-                            int* classification_label) const;
-
-  // Same as above but uses std::vector instead of FeatureVector.
-  // NOTE: If dropout is on, subsequent calls of this function with the same
-  // arguments might return different results.
-  bool GetFeaturesAndLabels(
-      const std::string& context, CodepointSpan input_span,
-      CodepointSpan label_span, const std::string& label_collection,
-      std::vector<std::vector<std::pair<int, float>>>* features,
-      std::vector<float>* extra_features,
-      std::vector<CodepointSpan>* selection_label_spans, int* selection_label,
-      CodepointSpan* selection_codepoint_label,
-      int* classification_label) const;
-
   // Converts a label into a token span.
   bool LabelToTokenSpan(int label, TokenSpan* token_span) const;
+
+  // Gets the total number of selection labels.
+  int GetSelectionLabelCount() const { return label_to_selection_.size(); }
 
   // Gets the string value for given collection label.
   std::string LabelToCollection(int label) const;
@@ -130,16 +117,34 @@ class FeatureProcessor {
   int NumCollections() const { return collection_to_label_.size(); }
 
   // Gets the name of the default collection.
-  std::string GetDefaultCollection() const {
-    return options_.collections(options_.default_collection());
+  std::string GetDefaultCollection() const;
+
+  const FeatureProcessorOptions& GetOptions() const { return options_; }
+
+  // Tokenizes the context and input span, and finds the click position.
+  void TokenizeAndFindClick(const std::string& context,
+                            CodepointSpan input_span,
+                            std::vector<Token>* tokens, int* click_pos) const;
+
+  // Extracts features as a CachedFeatures object that can be used for repeated
+  // inference over token spans in the given context.
+  bool ExtractFeatures(const std::string& context, CodepointSpan input_span,
+                       TokenSpan relative_click_span,
+                       const FeatureVectorFn& feature_vector_fn,
+                       int feature_vector_size, std::vector<Token>* tokens,
+                       int* click_pos,
+                       std::unique_ptr<CachedFeatures>* cached_features) const;
+
+  // Fills selection_label_spans with CodepointSpans that correspond to the
+  // selection labels. The CodepointSpans are based on the codepoint ranges of
+  // given tokens.
+  bool SelectionLabelSpans(
+      VectorSpan<Token> tokens,
+      std::vector<CodepointSpan>* selection_label_spans) const;
+
+  int DenseFeaturesCount() const {
+    return feature_extractor_.DenseFeaturesCount();
   }
-
-  FeatureProcessorOptions GetOptions() const { return options_; }
-
-  int GetSelectionLabelCount() const { return label_to_selection_.size(); }
-
-  // Sets the source of randomness.
-  void SetRandom(std::mt19937* new_random) { random_.reset(new_random); }
 
  protected:
   // Represents a codepoint range [start, end).
@@ -150,23 +155,6 @@ class FeatureProcessor {
     CodepointRange(int32 arg_start, int32 arg_end)
         : start(arg_start), end(arg_end) {}
   };
-
-  // Extracts features for given word.
-  std::vector<int> GetWordFeatures(const std::string& word) const;
-
-  // NOTE: If dropout is on, subsequent calls of this function with the same
-  // arguments might return different results.
-  bool ComputeFeatures(int click_pos,
-                       const std::vector<Token>& selectable_tokens,
-                       CodepointSpan selected_span,
-                       std::vector<nlp_core::FeatureVector>* features,
-                       std::vector<float>* extra_features,
-                       std::vector<Token>* output_tokens) const;
-
-  // Helper function that computes how much left context and how much right
-  // context should be dropped. Uses a mutable random_ member as a source of
-  // randomness.
-  bool GetContextDropoutRange(int* dropout_left, int* dropout_right) const;
 
   // Returns the class id corresponding to the given string collection
   // identifier. There is a catch-all class id that the function returns for
@@ -185,7 +173,7 @@ class FeatureProcessor {
 
   // Converts a label into a span of codepoint indices corresponding to it
   // given output_tokens.
-  bool LabelToSpan(int label, const std::vector<Token>& output_tokens,
+  bool LabelToSpan(int label, const VectorSpan<Token>& output_tokens,
                    CodepointSpan* span) const;
 
   // Converts a span to the corresponding label given output_tokens.
@@ -194,11 +182,6 @@ class FeatureProcessor {
 
   // Converts a token span to the corresponding label.
   int TokenSpanToLabel(const std::pair<TokenIndex, TokenIndex>& span) const;
-
-  // Finds the center token index in tokens vector, using the method defined
-  // in options_.
-  int FindCenterToken(CodepointSpan span,
-                      const std::vector<Token>& tokens) const;
 
   void PrepareSupportedCodepointRanges(
       const std::vector<FeatureProcessorOptions::CodepointRange>&
@@ -212,14 +195,18 @@ class FeatureProcessor {
   // Returns true if given codepoint is supported.
   bool IsCodepointSupported(int codepoint) const;
 
+  // Finds the center token index in tokens vector, using the method defined
+  // in options_.
+  int FindCenterToken(CodepointSpan span,
+                      const std::vector<Token>& tokens) const;
+
+  // Pads tokens with options.context_size() padding tokens on both sides.
+  int PadContext(std::vector<Token>* tokens) const;
+
+  const TokenFeatureExtractor feature_extractor_;
+
  private:
-  FeatureProcessorOptions options_;
-
-  TokenFeatureExtractor feature_extractor_;
-
-  static const char* const kFeatureTypeName;
-
-  nlp_core::NumericFeatureType feature_type_;
+  const FeatureProcessorOptions options_;
 
   // Mapping between token selection spans and labels ids.
   std::map<TokenSpan, int> selection_to_label_;
@@ -233,9 +220,6 @@ class FeatureProcessor {
   // Codepoint ranges that define what codepoints are supported by the model.
   // NOTE: Must be sorted.
   std::vector<CodepointRange> supported_codepoint_ranges_;
-
-  // Source of randomness.
-  mutable std::unique_ptr<std::mt19937> random_;
 };
 
 }  // namespace libtextclassifier

@@ -88,7 +88,8 @@ class TextClassificationModel {
   nlp_core::EmbeddingNetwork::Vector InferInternal(
       const std::string& context, CodepointSpan span,
       const FeatureProcessor& feature_processor,
-      const nlp_core::EmbeddingNetwork* network,
+      const nlp_core::EmbeddingNetwork& network,
+      const FeatureVectorFn& feature_vector_fn,
       std::vector<CodepointSpan>* selection_label_spans) const;
 
   // Returns a selection suggestion with a score.
@@ -104,9 +105,11 @@ class TextClassificationModel {
   std::unique_ptr<ModelParams> selection_params_;
   std::unique_ptr<FeatureProcessor> selection_feature_processor_;
   std::unique_ptr<nlp_core::EmbeddingNetwork> selection_network_;
+  FeatureVectorFn selection_feature_fn_;
   std::unique_ptr<FeatureProcessor> sharing_feature_processor_;
   std::unique_ptr<ModelParams> sharing_params_;
   std::unique_ptr<nlp_core::EmbeddingNetwork> sharing_network_;
+  FeatureVectorFn sharing_feature_fn_;
 
   std::set<int> punctuation_to_strip_;
 };

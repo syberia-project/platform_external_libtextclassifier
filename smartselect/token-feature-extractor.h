@@ -59,17 +59,20 @@ class TokenFeatureExtractor {
   explicit TokenFeatureExtractor(const TokenFeatureExtractorOptions& options);
 
   // Extracts features from a token.
+  //  - is_in_span is a bool indicator whether the token is a part of the
+  //      selection span (true) or not (false).
   //  - sparse_features are indices into a sparse feature vector of size
   //    options.num_buckets which are set to 1.0 (others are implicitly 0.0).
   //  - dense_features are values of a dense feature vector of size 0-2
   //    (depending on the options) for the token
-  bool Extract(const Token& token, std::vector<int>* sparse_features,
+  bool Extract(const Token& token, bool is_in_span,
+               std::vector<int>* sparse_features,
                std::vector<float>* dense_features) const;
 
-  // Convenience method that sequentially applies Extract to each Token.
-  bool Extract(const std::vector<Token>& tokens,
-               std::vector<std::vector<int>>* sparse_features,
-               std::vector<std::vector<float>>* dense_features) const;
+  int DenseFeaturesCount() const {
+    return options_.extract_case_feature +
+           options_.extract_selection_mask_feature + regex_patterns_.size();
+  }
 
  protected:
   // Hashes given token to given number of buckets.

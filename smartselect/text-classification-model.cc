@@ -91,6 +91,49 @@ TextClassificationModel::TextClassificationModel(int fd) {
   sharing_options_ = selection_params_->GetSharingModelOptions();
 }
 
+namespace {
+
+// Converts sparse features vector to nlp_core::FeatureVector.
+void SparseFeaturesToFeatureVector(
+    const std::vector<int> sparse_features,
+    const nlp_core::NumericFeatureType& feature_type,
+    nlp_core::FeatureVector* result) {
+  for (int feature_id : sparse_features) {
+    const int64 feature_value =
+        nlp_core::FloatFeatureValue(feature_id, 1.0 / sparse_features.size())
+            .discrete_value;
+    result->add(const_cast<nlp_core::NumericFeatureType*>(&feature_type),
+                feature_value);
+  }
+}
+
+// Returns a function that can be used for mapping sparse and dense features
+// to a float feature vector.
+// NOTE: The network object needs to be available at the time when the returned
+// function object is used.
+FeatureVectorFn CreateFeatureVectorFn(const EmbeddingNetwork& network,
+                                      int sparse_embedding_size) {
+  const nlp_core::NumericFeatureType feature_type("chargram_continuous", 0);
+  return [&network, sparse_embedding_size, feature_type](
+             const std::vector<int>& sparse_features,
+             const std::vector<float>& dense_features, float* embedding) {
+    nlp_core::FeatureVector feature_vector;
+    SparseFeaturesToFeatureVector(sparse_features, feature_type,
+                                  &feature_vector);
+
+    if (network.GetEmbedding(feature_vector, 0, embedding)) {
+      for (int i = 0; i < dense_features.size(); i++) {
+        embedding[sparse_embedding_size + i] = dense_features[i];
+      }
+      return true;
+    } else {
+      return false;
+    }
+  };
+}
+
+}  // namespace
+
 bool TextClassificationModel::LoadModels(int fd) {
   MmapHandle mmap_handle = MmapFile(fd);
   if (!mmap_handle.ok()) {
@@ -111,6 +154,8 @@ bool TextClassificationModel::LoadModels(int fd) {
   selection_network_.reset(new EmbeddingNetwork(selection_params_.get()));
   selection_feature_processor_.reset(
       new FeatureProcessor(selection_params_->GetFeatureProcessorOptions()));
+  selection_feature_fn_ = CreateFeatureVectorFn(
+      *selection_network_, selection_network_->EmbeddingSize(0));
 
   model_data += selection_model_length;
   uint32 sharing_model_length =
@@ -125,25 +170,39 @@ bool TextClassificationModel::LoadModels(int fd) {
   sharing_network_.reset(new EmbeddingNetwork(sharing_params_.get()));
   sharing_feature_processor_.reset(
       new FeatureProcessor(sharing_params_->GetFeatureProcessorOptions()));
+  sharing_feature_fn_ = CreateFeatureVectorFn(
+      *sharing_network_, sharing_network_->EmbeddingSize(0));
 
   return true;
 }
 
 EmbeddingNetwork::Vector TextClassificationModel::InferInternal(
     const std::string& context, CodepointSpan span,
-    const FeatureProcessor& feature_processor, const EmbeddingNetwork* network,
+    const FeatureProcessor& feature_processor, const EmbeddingNetwork& network,
+    const FeatureVectorFn& feature_vector_fn,
     std::vector<CodepointSpan>* selection_label_spans) const {
-  std::vector<FeatureVector> features;
-  std::vector<float> extra_features;
-  const bool features_computed = feature_processor.GetFeatures(
-      context, span, &features, &extra_features, selection_label_spans);
-
-  EmbeddingNetwork::Vector scores;
-  if (!features_computed) {
-    TC_LOG(ERROR) << "Features not computed";
-    return scores;
+  std::vector<Token> tokens;
+  int click_pos;
+  std::unique_ptr<CachedFeatures> cached_features;
+  int embedding_size = network.EmbeddingSize(0);
+  if (!feature_processor.ExtractFeatures(
+          context, span, /*relative_click_span=*/{0, 0},
+          CreateFeatureVectorFn(network, embedding_size),
+          embedding_size + feature_processor.DenseFeaturesCount(), &tokens,
+          &click_pos, &cached_features)) {
+    TC_LOG(ERROR) << "Could not extract features.";
+    return {};
   }
-  network->ComputeFinalScores(features, extra_features, &scores);
+
+  VectorSpan<float> features;
+  VectorSpan<Token> output_tokens;
+  if (!cached_features->Get(click_pos, &features, &output_tokens)) {
+    TC_LOG(ERROR) << "Could not extract features.";
+    return {};
+  }
+
+  std::vector<float> scores;
+  network.ComputeLogits(features, &scores);
   return scores;
 }
 
@@ -158,6 +217,15 @@ CodepointSpan TextClassificationModel::SuggestSelection(
     TC_LOG(ERROR) << "Trying to run SuggestSelection with invalid indices:"
                   << std::get<0>(click_indices) << " "
                   << std::get<1>(click_indices);
+    return click_indices;
+  }
+
+  const UnicodeText context_unicode =
+      UTF8ToUnicodeText(context, /*do_copy=*/false);
+  const int context_length =
+      std::distance(context_unicode.begin(), context_unicode.end());
+  if (std::get<0>(click_indices) >= context_length ||
+      std::get<1>(click_indices) > context_length) {
     return click_indices;
   }
 
@@ -176,21 +244,12 @@ CodepointSpan TextClassificationModel::SuggestSelection(
   return result;
 }
 
-std::pair<CodepointSpan, float>
-TextClassificationModel::SuggestSelectionInternal(
-    const std::string& context, CodepointSpan click_indices) const {
-  if (!initialized_) {
-    TC_LOG(ERROR) << "Not initialized";
-    return {click_indices, -1.0};
-  }
+namespace {
 
-  std::vector<CodepointSpan> selection_label_spans;
-  EmbeddingNetwork::Vector scores =
-      InferInternal(context, click_indices, *selection_feature_processor_,
-                    selection_network_.get(), &selection_label_spans);
-
+std::pair<CodepointSpan, float> BestSelectionSpan(
+    CodepointSpan original_click_indices, const std::vector<float>& scores,
+    const std::vector<CodepointSpan>& selection_label_spans) {
   if (!scores.empty()) {
-    scores = nlp_core::ComputeSoftmax(scores);
     const int prediction =
         std::max_element(scores.begin(), scores.end()) - scores.begin();
     std::pair<CodepointIndex, CodepointIndex> selection =
@@ -200,15 +259,34 @@ TextClassificationModel::SuggestSelectionInternal(
       TC_LOG(ERROR) << "Invalid indices predicted, returning input: "
                     << prediction << " " << selection.first << " "
                     << selection.second;
-      return {click_indices, -1.0};
+      return {original_click_indices, -1.0};
     }
 
     return {{selection.first, selection.second}, scores[prediction]};
   } else {
     TC_LOG(ERROR) << "Returning default selection: scores.size() = "
                   << scores.size();
+    return {original_click_indices, -1.0};
+  }
+}
+
+}  // namespace
+
+std::pair<CodepointSpan, float>
+TextClassificationModel::SuggestSelectionInternal(
+    const std::string& context, CodepointSpan click_indices) const {
+  if (!initialized_) {
+    TC_LOG(ERROR) << "Not initialized";
     return {click_indices, -1.0};
   }
+
+  std::vector<CodepointSpan> selection_label_spans;
+  EmbeddingNetwork::Vector scores = InferInternal(
+      context, click_indices, *selection_feature_processor_,
+      *selection_network_, selection_feature_fn_, &selection_label_spans);
+  scores = nlp_core::ComputeSoftmax(scores);
+
+  return BestSelectionSpan(click_indices, scores, selection_label_spans);
 }
 
 namespace {
@@ -245,27 +323,49 @@ int GetClickTokenIndex(const std::vector<Token>& tokens,
 // selection.
 CodepointSpan TextClassificationModel::SuggestSelectionSymmetrical(
     const std::string& context, CodepointSpan click_indices) const {
-  std::vector<Token> tokens = selection_feature_processor_->Tokenize(context);
-  internal::StripTokensFromOtherLines(context, click_indices, &tokens);
-
-  // const int click_index = GetClickTokenIndex(tokens, click_indices);
-  const int click_index = internal::CenterTokenFromClick(click_indices, tokens);
-  if (click_index == kInvalidIndex) {
+  const int symmetry_context_size = selection_options_.symmetry_context_size();
+  std::vector<Token> tokens;
+  std::unique_ptr<CachedFeatures> cached_features;
+  int click_index;
+  int embedding_size = selection_network_->EmbeddingSize(0);
+  if (!selection_feature_processor_->ExtractFeatures(
+          context, click_indices, /*relative_click_span=*/
+          {symmetry_context_size, symmetry_context_size + 1},
+          selection_feature_fn_,
+          embedding_size + selection_feature_processor_->DenseFeaturesCount(),
+          &tokens, &click_index, &cached_features)) {
+    TC_LOG(ERROR) << "Couldn't ExtractFeatures.";
     return click_indices;
   }
 
-  const int symmetry_context_size = selection_options_.symmetry_context_size();
-
   // Scan in the symmetry context for selection span proposals.
   std::vector<std::pair<CodepointSpan, float>> proposals;
+
   for (int i = -symmetry_context_size; i < symmetry_context_size + 1; ++i) {
     const int token_index = click_index + i;
-    if (token_index >= 0 && token_index < tokens.size()) {
+    if (token_index >= 0 && token_index < tokens.size() &&
+        !tokens[token_index].is_padding) {
       float score;
+      VectorSpan<float> features;
+      VectorSpan<Token> output_tokens;
+
       CodepointSpan span;
-      std::tie(span, score) = SuggestSelectionInternal(
-          context, {tokens[token_index].start, tokens[token_index].end});
-      proposals.push_back({span, score});
+      if (cached_features->Get(token_index, &features, &output_tokens)) {
+        std::vector<float> scores;
+        selection_network_->ComputeLogits(features, &scores);
+
+        std::vector<CodepointSpan> selection_label_spans;
+        if (selection_feature_processor_->SelectionLabelSpans(
+                output_tokens, &selection_label_spans)) {
+          scores = nlp_core::ComputeSoftmax(scores);
+          std::tie(span, score) =
+              BestSelectionSpan(click_indices, scores, selection_label_spans);
+          if (span.first != kInvalidIndex && span.second != kInvalidIndex &&
+              score >= 0) {
+            proposals.push_back({span, score});
+          }
+        }
+      }
     }
   }
 
@@ -315,6 +415,13 @@ TextClassificationModel::ClassifyText(const std::string& context,
     return {};
   }
 
+  if (std::get<0>(selection_indices) >= std::get<1>(selection_indices)) {
+    TC_LOG(ERROR) << "Trying to run ClassifyText with invalid indices: "
+                  << std::get<0>(selection_indices) << " "
+                  << std::get<1>(selection_indices);
+    return {};
+  }
+
   if (hint_flags & SELECTION_IS_URL &&
       sharing_options_.always_accept_url_hint()) {
     return {{kUrlHintCollection, 1.0}};
@@ -327,7 +434,7 @@ TextClassificationModel::ClassifyText(const std::string& context,
 
   EmbeddingNetwork::Vector scores =
       InferInternal(context, selection_indices, *sharing_feature_processor_,
-                    sharing_network_.get(), nullptr);
+                    *sharing_network_, sharing_feature_fn_, nullptr);
   if (scores.empty()) {
     TC_LOG(ERROR) << "Using default class";
     return {};

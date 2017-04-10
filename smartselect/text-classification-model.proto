@@ -159,6 +159,16 @@ message FeatureProcessorOptions {
   // Minimum ratio of supported codepoints in the input context. If the ratio
   // is lower than this, the feature computation will fail.
   optional float min_supported_codepoint_ratio = 24 [default = 0.0];
+
+  // Used for versioning the format of features the model expects.
+  //  - feature_version == 0:
+  //      For each token the features consist of:
+  //       - chargram embeddings
+  //       - dense features
+  //      Chargram embeddings for tokens are concatenated first together,
+  //      and at the end, the dense features for the tokens are concatenated
+  //      to it. So the resulting feature vector has two regions.
+  optional int32 feature_version = 25 [default = 0];
 };
 
 extend nlp_core.EmbeddingNetworkProto {
