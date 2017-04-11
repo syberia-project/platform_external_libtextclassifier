@@ -201,6 +201,14 @@ EmbeddingNetwork::Vector TextClassificationModel::InferInternal(
     return {};
   }
 
+  if (selection_label_spans != nullptr) {
+    if (!feature_processor.SelectionLabelSpans(output_tokens,
+                                               selection_label_spans)) {
+      TC_LOG(ERROR) << "Could not get spans for selection labels.";
+      return {};
+    }
+  }
+
   std::vector<float> scores;
   network.ComputeLogits(features, &scores);
   return scores;

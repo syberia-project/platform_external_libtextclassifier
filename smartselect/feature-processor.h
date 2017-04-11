@@ -79,8 +79,13 @@ void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
 
 }  // namespace internal
 
+// Converts a codepoint span to a token span in the given list of tokens.
 TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
                                    CodepointSpan codepoint_span);
+
+// Converts a token span to a codepoint span in the given list of tokens.
+CodepointSpan TokenSpanToCodepointSpan(
+    const std::vector<Token>& selectable_tokens, TokenSpan token_span);
 
 // Takes care of preparing features for the span prediction model.
 class FeatureProcessor {
@@ -202,6 +207,10 @@ class FeatureProcessor {
 
   // Pads tokens with options.context_size() padding tokens on both sides.
   int PadContext(std::vector<Token>* tokens) const;
+
+  // Tokenizes the input text using ICU tokenizer.
+  bool ICUTokenize(const std::string& context,
+                   std::vector<Token>* result) const;
 
   const TokenFeatureExtractor feature_extractor_;
 
