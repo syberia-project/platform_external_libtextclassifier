@@ -114,6 +114,10 @@ class TextClassificationModel {
   std::set<int> punctuation_to_strip_;
 };
 
+// Parses the merged image given as a file descriptor, and reads
+// the ModelOptions proto from the selection model.
+bool ReadSelectionModelOptions(int fd, ModelOptions* model_options);
+
 }  // namespace libtextclassifier
 
 #endif  // LIBTEXTCLASSIFIER_SMARTSELECT_TEXT_CLASSIFICATION_MODEL_H_

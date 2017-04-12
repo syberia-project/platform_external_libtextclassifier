@@ -27,6 +27,12 @@ message ModelOptions {
   // If true, will use embeddings from a different model. This is mainly useful
   // for the Sharing model using the embeddings from the Selection model.
   optional bool use_shared_embeddings = 1;
+
+  // Language of the model.
+  optional string language = 2;
+
+  // Version of the model.
+  optional int32 version = 3;
 }
 
 message SelectionModelOptions {
@@ -104,13 +110,6 @@ message FeatureProcessorOptions {
   // be mapped to an id.
   optional int32 default_collection = 10 [default = -1];
 
-  // Probability with which to drop context of examples.
-  optional float context_dropout_probability = 11 [default = 0.0];
-
-  // If true, drop variable amounts of context, if false all context, with
-  // probability given by context_dropout_ratio.
-  optional bool use_variable_context_dropout = 12 [default = false];
-
   // If true, will split the input by lines, and only use the line that contains
   // the clicked token.
   optional bool only_use_line_with_click = 13 [default = false];
@@ -136,9 +135,6 @@ message FeatureProcessorOptions {
     CENTER_TOKEN_MIDDLE_OF_SELECTION = 2;
   }
   optional CenterTokenSelectionMethod center_token_selection_method = 16;
-
-  // If true, during training will click random token in the example selection.
-  optional bool click_random_token_in_selection = 17 [default = true];
 
   // If true, span boundaries will be snapped to containing tokens and not
   // required to exactly match token boundaries.
@@ -167,27 +163,6 @@ message FeatureProcessorOptions {
   //      to it. So the resulting feature vector has two regions.
   optional int32 feature_version = 25 [default = 0];
 
-  // These settings control whether a distortion is applied to part of the data,
-  // for Smart Sharing. Distortion means modifying (expanding) the bounds of the
-  // selection and changing the example's collection to "other". The goal is to
-  // expose the model to overselections as negative examples.
-  // If true, distortion is applied. Otherwise the other settings are ignored.
-  optional bool distortion_enable = 26;
-  // Probability settings. They individual values and their sum should be in the
-  // range [0, 1]. They specify the probability of the distorition being applied
-  // to just one of the bounds (left or right with equal probabiolity), both
-  // bounds, or not at all (the remaining probability).
-  // If the context does not contain tokens on the given side of the selection,
-  // the probabilistic decision is ignored. This means that the actual frequency
-  // of distortion is somewhat lower than specified here.
-  optional double distortion_probability_one_side = 27;
-  optional double distortion_probability_both_sides = 28;
-  // The maximum number of tokens to include (on one side) when distortion is
-  // applied. The actual number is selected (independently for each side)
-  // uniformly from integers from 1 to this value, inclusive. If the context is
-  // too short, the end result is truncated.
-  optional double distortion_max_num_tokens = 29;
-
   // Controls the type of tokenization the model will use for the input text.
   enum TokenizationType {
     INVALID_TOKENIZATION_TYPE = 0;
@@ -202,7 +177,7 @@ message FeatureProcessorOptions {
       [default = INTERNAL_TOKENIZER];
   optional bool icu_preserve_whitespace_tokens = 31 [default = false];
 
-  reserved 7;
+  reserved 7, 11, 12, 17, 26, 27, 28, 29, 32;
 };
 
 extend nlp_core.EmbeddingNetworkProto {

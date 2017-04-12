@@ -47,6 +47,16 @@ Java_android_view_textclassifier_SmartSelection_nativeClose(JNIEnv* env,
                                                             jobject thiz,
                                                             jlong ptr);
 
+JNIEXPORT jstring JNICALL
+Java_android_view_textclassifier_SmartSelection_nativeGetLanguage(JNIEnv* env,
+                                                                  jobject thiz,
+                                                                  jint fd);
+
+JNIEXPORT jint JNICALL
+Java_android_view_textclassifier_SmartSelection_nativeGetVersion(JNIEnv* env,
+                                                                 jobject thiz,
+                                                                 jint fd);
+
 // LangId.
 JNIEXPORT jlong JNICALL Java_android_view_textclassifier_LangId_nativeNew(
     JNIEnv* env, jobject thiz, jint fd);
@@ -65,15 +75,44 @@ JNIEXPORT void JNICALL Java_android_view_textclassifier_LangId_nativeClose(
 #endif
 
 using libtextclassifier::TextClassificationModel;
+using libtextclassifier::ModelOptions;
 using libtextclassifier::nlp_core::lang_id::LangId;
 
 namespace {
 
-std::string ToStlString(JNIEnv* env, jstring str) {
-  const char* bytes = env->GetStringUTFChars(str, 0);
-  const std::string s = bytes;
-  env->ReleaseStringUTFChars(str, bytes);
-  return s;
+bool JStringToUtf8String(JNIEnv* env, const jstring& jstr,
+                         std::string* result) {
+  if (jstr == nullptr) {
+    *result = std::string();
+    return false;
+  }
+
+  jclass string_class = env->FindClass("java/lang/String");
+  jmethodID get_bytes_id =
+      env->GetMethodID(string_class, "getBytes", "(Ljava/lang/String;)[B");
+
+  jstring encoding = env->NewStringUTF("UTF-8");
+  jbyteArray array = reinterpret_cast<jbyteArray>(
+      env->CallObjectMethod(jstr, get_bytes_id, encoding));
+
+  jbyte* const array_bytes = env->GetByteArrayElements(array, JNI_FALSE);
+  int length = env->GetArrayLength(array);
+
+  *result = std::string(reinterpret_cast<char*>(array_bytes), length);
+
+  // Release the array.
+  env->ReleaseByteArrayElements(array, array_bytes, JNI_ABORT);
+  env->DeleteLocalRef(array);
+  env->DeleteLocalRef(string_class);
+  env->DeleteLocalRef(encoding);
+
+  return true;
+}
+
+std::string ToStlString(JNIEnv* env, const jstring& str) {
+  std::string result;
+  JStringToUtf8String(env, str, &result);
+  return result;
 }
 
 jobjectArray ScoredStringsToJObjectArray(
@@ -152,6 +191,30 @@ Java_android_view_textclassifier_SmartSelection_nativeClose(JNIEnv* env,
 JNIEXPORT jlong JNICALL Java_android_view_textclassifier_LangId_nativeNew(
     JNIEnv* env, jobject thiz, jint fd) {
   return reinterpret_cast<jlong>(new LangId(fd));
+}
+
+JNIEXPORT jstring JNICALL
+Java_android_view_textclassifier_SmartSelection_nativeGetLanguage(JNIEnv* env,
+                                                                  jobject clazz,
+                                                                  jint fd) {
+  ModelOptions model_options;
+  if (ReadSelectionModelOptions(fd, &model_options)) {
+    return env->NewStringUTF(model_options.language().c_str());
+  } else {
+    return env->NewStringUTF("UNK");
+  }
+}
+
+JNIEXPORT jint JNICALL
+Java_android_view_textclassifier_SmartSelection_nativeGetVersion(JNIEnv* env,
+                                                                 jobject clazz,
+                                                                 jint fd) {
+  ModelOptions model_options;
+  if (ReadSelectionModelOptions(fd, &model_options)) {
+    return model_options.version();
+  } else {
+    return -1;
+  }
 }
 
 JNIEXPORT jobjectArray JNICALL
