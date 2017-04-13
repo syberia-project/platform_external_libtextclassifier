@@ -132,6 +132,23 @@ FeatureVectorFn CreateFeatureVectorFn(const EmbeddingNetwork& network,
   };
 }
 
+void ParseMergedModel(const MmapHandle& mmap_handle,
+                      const char** selection_model, int* selection_model_length,
+                      const char** sharing_model, int* sharing_model_length) {
+  // Read the length of the selection model.
+  const char* model_data = reinterpret_cast<const char*>(mmap_handle.start());
+  *selection_model_length =
+      LittleEndian::ToHost32(*reinterpret_cast<const uint32*>(model_data));
+  model_data += sizeof(*selection_model_length);
+  *selection_model = model_data;
+  model_data += *selection_model_length;
+
+  *sharing_model_length =
+      LittleEndian::ToHost32(*reinterpret_cast<const uint32*>(model_data));
+  model_data += sizeof(*sharing_model_length);
+  *sharing_model = model_data;
+}
+
 }  // namespace
 
 bool TextClassificationModel::LoadModels(int fd) {
@@ -140,14 +157,13 @@ bool TextClassificationModel::LoadModels(int fd) {
     return false;
   }
 
-  // Read the length of the selection model.
-  const char* model_data = reinterpret_cast<const char*>(mmap_handle.start());
-  uint32 selection_model_length =
-      LittleEndian::ToHost32(*reinterpret_cast<const uint32*>(model_data));
-  model_data += sizeof(selection_model_length);
+  const char *selection_model, *sharing_model;
+  int selection_model_length, sharing_model_length;
+  ParseMergedModel(mmap_handle, &selection_model, &selection_model_length,
+                   &sharing_model, &sharing_model_length);
 
   selection_params_.reset(
-      ModelParamsBuilder(model_data, selection_model_length, nullptr));
+      ModelParamsBuilder(selection_model, selection_model_length, nullptr));
   if (!selection_params_.get()) {
     return false;
   }
@@ -157,12 +173,8 @@ bool TextClassificationModel::LoadModels(int fd) {
   selection_feature_fn_ = CreateFeatureVectorFn(
       *selection_network_, selection_network_->EmbeddingSize(0));
 
-  model_data += selection_model_length;
-  uint32 sharing_model_length =
-      LittleEndian::ToHost32(*reinterpret_cast<const uint32*>(model_data));
-  model_data += sizeof(sharing_model_length);
   sharing_params_.reset(
-      ModelParamsBuilder(model_data, sharing_model_length,
+      ModelParamsBuilder(sharing_model, sharing_model_length,
                          selection_params_->GetEmbeddingParams()));
   if (!sharing_params_.get()) {
     return false;
@@ -174,6 +186,31 @@ bool TextClassificationModel::LoadModels(int fd) {
       *sharing_network_, sharing_network_->EmbeddingSize(0));
 
   return true;
+}
+
+bool ReadSelectionModelOptions(int fd, ModelOptions* model_options) {
+  MmapHandle mmap_handle = MmapFile(fd);
+  if (!mmap_handle.ok()) {
+    TC_LOG(ERROR) << "Can't mmap.";
+    return false;
+  }
+
+  const char *selection_model, *sharing_model;
+  int selection_model_length, sharing_model_length;
+  ParseMergedModel(mmap_handle, &selection_model, &selection_model_length,
+                   &sharing_model, &sharing_model_length);
+
+  MemoryImageReader<EmbeddingNetworkProto> reader(selection_model,
+                                                  selection_model_length);
+
+  auto model_options_extension_id = model_options_in_embedding_network_proto;
+  if (reader.trimmed_proto().HasExtension(model_options_extension_id)) {
+    *model_options =
+        reader.trimmed_proto().GetExtension(model_options_extension_id);
+    return true;
+  } else {
+    return false;
+  }
 }
 
 EmbeddingNetwork::Vector TextClassificationModel::InferInternal(

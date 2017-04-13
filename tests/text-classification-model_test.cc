@@ -31,6 +31,17 @@ std::string GetModelPath() {
   return TEST_DATA_DIR "smartselection.model";
 }
 
+TEST(TextClassificationModelTest, ReadModelOptions) {
+  const std::string model_path = GetModelPath();
+  int fd = open(model_path.c_str(), O_RDONLY);
+  ModelOptions model_options;
+  ASSERT_TRUE(ReadSelectionModelOptions(fd, &model_options));
+  close(fd);
+
+  EXPECT_EQ("en", model_options.language());
+  EXPECT_GT(model_options.version(), 0);
+}
+
 TEST(TextClassificationModelTest, SuggestSelection) {
   const std::string model_path = GetModelPath();
   int fd = open(model_path.c_str(), O_RDONLY);
