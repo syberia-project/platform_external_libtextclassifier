@@ -120,9 +120,141 @@ include $(BUILD_PREBUILT)
 # ----------------------
 
 include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.ar.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.ar.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.de.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.de.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
 LOCAL_MODULE        := textclassifier.smartselection.en.model
 LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER := google
+LOCAL_MODULE_OWNER  := google
 LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.en.model
 LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
 include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.es.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.es.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.fr.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.fr.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.it.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.it.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.ja.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.ja.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.ko.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.ko.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.nl.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.nl.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.pl.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.pl.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.pt-PT.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.pt-PT.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.ru.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.ru.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.th.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.th.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.tr.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.tr.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.zh-Hant.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.zh-Hant.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE        := textclassifier.smartselection.zh.model
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_MODULE_OWNER  := google
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.zh.model
+LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
+include $(BUILD_PREBUILT)
+
+# -----------------------
+# Smart Selection bundles
+# -----------------------
+
+include $(CLEAR_VARS)
+LOCAL_MODULE           := textclassifier.smartselection.bundle1
+LOCAL_REQUIRED_MODULES := textclassifier.smartselection.en.model
+LOCAL_REQUIRED_MODULES += textclassifier.smartselection.es.model
+LOCAL_REQUIRED_MODULES += textclassifier.smartselection.de.model
+LOCAL_REQUIRED_MODULES += textclassifier.smartselection.fr.model
+include $(BUILD_STATIC_LIBRARY)
