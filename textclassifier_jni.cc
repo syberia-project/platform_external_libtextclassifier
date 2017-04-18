@@ -49,12 +49,12 @@ Java_android_view_textclassifier_SmartSelection_nativeClose(JNIEnv* env,
 
 JNIEXPORT jstring JNICALL
 Java_android_view_textclassifier_SmartSelection_nativeGetLanguage(JNIEnv* env,
-                                                                  jobject thiz,
+                                                                  jobject clazz,
                                                                   jint fd);
 
 JNIEXPORT jint JNICALL
 Java_android_view_textclassifier_SmartSelection_nativeGetVersion(JNIEnv* env,
-                                                                 jobject thiz,
+                                                                 jobject clazz,
                                                                  jint fd);
 
 // LangId.
@@ -69,6 +69,9 @@ Java_android_view_textclassifier_LangId_nativeFindLanguages(JNIEnv* env,
 
 JNIEXPORT void JNICALL Java_android_view_textclassifier_LangId_nativeClose(
     JNIEnv* env, jobject thiz, jlong ptr);
+
+JNIEXPORT int JNICALL Java_android_view_textclassifier_LangId_nativeGetVersion(
+    JNIEnv* env, jobject clazz, jint fd);
 
 #ifdef __cplusplus
 }
@@ -235,4 +238,10 @@ JNIEXPORT void JNICALL Java_android_view_textclassifier_LangId_nativeClose(
     JNIEnv* env, jobject thiz, jlong ptr) {
   LangId* lang_id = reinterpret_cast<LangId*>(ptr);
   delete lang_id;
+}
+
+JNIEXPORT int JNICALL Java_android_view_textclassifier_LangId_nativeGetVersion(
+    JNIEnv* env, jobject clazz, jint fd) {
+  std::unique_ptr<LangId> lang_id(new LangId(fd));
+  return lang_id->version();
 }

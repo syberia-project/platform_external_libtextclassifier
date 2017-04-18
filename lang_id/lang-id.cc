@@ -137,6 +137,7 @@ class LangIdImpl {
         context.Get("reliability_thresh", kDefaultProbabilityThreshold);
     min_text_size_in_bytes_ =
         context.Get("min_text_size_in_bytes", kDefaultMinTextSizeInBytes);
+    version_ = context.Get("version", 0);
 
     if (!lang_id_brain_interface_.Init(&context)) {
       return;
@@ -212,6 +213,8 @@ class LangIdImpl {
   }
 
   bool is_valid() const { return valid_; }
+
+  int version() const { return version_; }
 
  private:
   // Returns name of the (in-memory) file for the indicated TaskInput from
@@ -338,6 +341,9 @@ class LangIdImpl {
   // confidence score.
   int min_text_size_in_bytes_ = kDefaultMinTextSizeInBytes;
 
+  // Version of the model.
+  int version_ = -1;
+
   // Known languages: softmax label i (an integer) means languages_.element(i)
   // (something like "en", "fr", "ru", etc).
   ListOfStrings languages_;
@@ -386,6 +392,8 @@ std::vector<std::pair<std::string, float>> LangId::FindLanguages(
 }
 
 bool LangId::is_valid() const { return pimpl_->is_valid(); }
+
+int LangId::version() const { return pimpl_->version(); }
 
 }  // namespace lang_id
 }  // namespace nlp_core

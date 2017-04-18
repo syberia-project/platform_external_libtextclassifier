@@ -88,6 +88,9 @@ class LangId {
   // constructor above.
   bool is_valid() const;
 
+  // Returns version number for the model.
+  int version() const;
+
  private:
   // Returns a vector of probabilities of languages of the text.
   std::vector<float> ScoreLanguages(const std::string &text) const;
