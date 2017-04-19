@@ -53,9 +53,6 @@ bool ParseProtoFromMemory(StringPiece sp, Proto *proto) {
   return proto->ParseFromZeroCopyStream(&stream);
 #else
 
-  // NOTE(salcianu): code below is inefficient due to std::string copying.
-  // Still, it's required only inside google3, i.e., it won't run on Android.
-  // TODO(salcianu): delete this code from the open source version.
   std::string data(sp.data(), sp.size());
   return proto->ParseFromString(data);
 #endif

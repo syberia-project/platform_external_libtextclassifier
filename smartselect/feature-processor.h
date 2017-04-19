@@ -20,7 +20,6 @@
 #define LIBTEXTCLASSIFIER_SMARTSELECT_FEATURE_PROCESSOR_H_
 
 #include <memory>
-#include <random>
 #include <string>
 #include <vector>
 
@@ -204,9 +203,6 @@ class FeatureProcessor {
   // in options_.
   int FindCenterToken(CodepointSpan span,
                       const std::vector<Token>& tokens) const;
-
-  // Pads tokens with options.context_size() padding tokens on both sides.
-  int PadContext(std::vector<Token>* tokens) const;
 
   // Tokenizes the input text using ICU tokenizer.
   bool ICUTokenize(const std::string& context,

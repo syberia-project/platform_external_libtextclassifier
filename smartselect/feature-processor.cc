@@ -397,8 +397,7 @@ int FeatureProcessor::FindCenterToken(CodepointSpan span,
     return internal::CenterTokenFromMiddleOfSelection(span, tokens);
   } else if (options_.center_token_selection_method() ==
              FeatureProcessorOptions::DEFAULT_CENTER_TOKEN_METHOD) {
-    // TODO(zilka): This is a HACK not to break the current models. Remove once
-    // we have new models on the device.
+    // TODO(zilka): Remove once we have new models on the device.
     // It uses the fact that sharing model use
     // split_tokens_on_selection_boundaries and selection not. So depending on
     // this we select the right way of finding the click location.
@@ -481,10 +480,10 @@ bool FeatureProcessor::IsCodepointSupported(int codepoint) const {
                                // returned.
                                //
                                // It might seem weird that the condition is
-                               // range < codepoint here but when codepoint ==
-                               // range.end it means it's actually just outside
-                               // of the range, thus the range is less than the
-                               // codepoint.
+                               // range.end <= codepoint here but when codepoint
+                               // == range.end it means it's actually just
+                               // outside of the range, thus the range is less
+                               // than the codepoint.
                                return range.end <= codepoint;
                              });
   if (it != supported_codepoint_ranges_.end() && it->start <= codepoint &&
@@ -598,8 +597,8 @@ bool FeatureProcessor::ExtractFeatures(
     std::unique_ptr<CachedFeatures>* cached_features) const {
   TokenizeAndFindClick(context, input_span, tokens, click_pos);
 
-  // If the default click method failed fails, let's try to do sub-token
-  // matching before we fail.
+  // If the default click method failed, let's try to do sub-token matching
+  // before we fail.
   if (*click_pos == kInvalidIndex) {
     *click_pos = internal::CenterTokenFromClick(input_span, *tokens);
     if (*click_pos == kInvalidIndex) {
@@ -647,13 +646,6 @@ bool FeatureProcessor::ExtractFeatures(
   }
 
   return true;
-}
-
-int FeatureProcessor::PadContext(std::vector<Token>* tokens) const {
-  std::vector<Token> pad_tokens(options_.context_size());
-  tokens->insert(tokens->begin(), pad_tokens.begin(), pad_tokens.end());
-  tokens->insert(tokens->end(), pad_tokens.begin(), pad_tokens.end());
-  return options_.context_size();
 }
 
 bool FeatureProcessor::ICUTokenize(const std::string& context,

@@ -314,5 +314,20 @@ TEST(TextClassificationModelTest, ClassifyTextWithHints) {
                                 TextClassificationModel::SELECTION_IS_URL));
 }
 
+TEST(TextClassificationModelTest, PhoneFiltering) {
+  const std::string model_path = GetModelPath();
+  int fd = open(model_path.c_str(), O_RDONLY);
+  std::unique_ptr<TestingTextClassificationModel> model(
+      new TestingTextClassificationModel(fd));
+  close(fd);
+
+  EXPECT_EQ("phone", FindBestResult(model->ClassifyText("phone: (123) 456 789",
+                                                        {7, 20}, 0)));
+  EXPECT_EQ("phone", FindBestResult(model->ClassifyText(
+                         "phone: (123) 456 789,0001112", {7, 25}, 0)));
+  EXPECT_EQ("other", FindBestResult(model->ClassifyText(
+                         "phone: (123) 456 789,0001112", {7, 28}, 0)));
+}
+
 }  // namespace
 }  // namespace libtextclassifier

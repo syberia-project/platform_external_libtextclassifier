@@ -120,7 +120,7 @@ bool EmbeddingNetwork::ConcatEmbeddings(
     const std::vector<FeatureVector> &feature_vectors, Vector *concat) const {
   concat->resize(concat_layer_size_);
 
-  // Invariant 3: feature_vectors contains exactly one element for each
+  // Invariant 1: feature_vectors contains exactly one element for each
   // embedding space.  That element is itself a FeatureVector, which may be
   // empty, but it should be there.
   if (feature_vectors.size() != embedding_matrices_.size()) {
@@ -131,7 +131,7 @@ bool EmbeddingNetwork::ConcatEmbeddings(
 
   // "es_index" stands for "embedding space index".
   for (int es_index = 0; es_index < feature_vectors.size(); ++es_index) {
-    // Access is safe by es_index loop bounds and Invariant 3.
+    // Access is safe by es_index loop bounds and Invariant 1.
     EmbeddingMatrix *const embedding_matrix =
         embedding_matrices_[es_index].get();
     if (embedding_matrix == nullptr) {
@@ -143,7 +143,7 @@ bool EmbeddingNetwork::ConcatEmbeddings(
     // Access is safe due to es_index loop bounds.
     const FeatureVector &feature_vector = feature_vectors[es_index];
 
-    // Access is safe by es_index loop bounds, Invariant 2, and Invariant 3.
+    // Access is safe by es_index loop bounds, Invariant 1, and Invariant 2.
     const int concat_offset = concat_offset_[es_index];
 
     if (!GetEmbeddingInternal(feature_vector, embedding_matrix, concat_offset,
@@ -270,7 +270,7 @@ bool EmbeddingNetwork::FinishComputeFinalScoresInternal(
     // This should never happen: the EmbeddingNetwork() constructor marks the
     // object invalid if #hidden layers is not 1 or 2.  Even if a client uses an
     // invalid EmbeddingNetwork, ComputeFinalScores() (the only caller to this
-    // method) returns immediately is !is_valid().  Still, just in case, we log
+    // method) returns immediately if !is_valid().  Still, just in case, we log
     // an error, but don't crash.
     TC_LOG(ERROR) << hidden_weights_.size();
   }

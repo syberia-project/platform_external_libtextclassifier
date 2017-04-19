@@ -26,10 +26,6 @@ namespace nlp_core {
 // 16 bit encoding of a float.  NOTE: can't be used directly for computation:
 // one first needs to convert it to a normal float, using Float16To32.
 //
-// Based on google3/learning/dist_belief/util/small_float_coder.h Unfortunately,
-// that file has too many other dependencies that may break our mobile build, so
-// we defined our small copy, containing only float16.
-//
 // Documentation copied from original file:
 //
 // Compact 16-bit encoding of floating point numbers. This
