@@ -56,6 +56,10 @@ message SharingModelOptions {
 
   // If true, will always return "email" when the e-mail hint is passed in.
   optional bool always_accept_email_hint = 2;
+
+  // Limits for phone numbers.
+  optional int32 phone_min_num_digits = 3 [default = 7];
+  optional int32 phone_max_num_digits = 4 [default = 15];
 }
 
 message FeatureProcessorOptions {

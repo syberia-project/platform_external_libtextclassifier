@@ -42,9 +42,6 @@ class LangIdEmbeddingFeatureExtractor
   TC_DISALLOW_COPY_AND_ASSIGN(LangIdEmbeddingFeatureExtractor);
 };
 
-// Similar to the inference (processing) part of SaftBrainInterface from
-// nlp/saft/components/common/brain/saft-brain-interface.h
-//
 // Handles sentence -> numeric_features and numeric_prediction -> language
 // conversions.
 class LangIdBrainInterface {

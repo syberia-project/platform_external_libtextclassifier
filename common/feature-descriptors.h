@@ -29,9 +29,6 @@ namespace libtextclassifier {
 namespace nlp_core {
 
 // Named feature parameter.
-//
-// NOTE: originally a proto, was converted to a class to save binary size.  Name
-// and API mimick the old proto.
 class Parameter {
  public:
   Parameter() {}
@@ -49,9 +46,6 @@ class Parameter {
 
 // Descriptor for a feature function.  Used to store the results of parsing one
 // feature function.
-//
-// NOTE: originally a proto, was converted to a class to save binary size.  Name
-// and API mimick the old proto.
 class FeatureFunctionDescriptor {
  public:
   FeatureFunctionDescriptor() {}
@@ -127,9 +121,6 @@ class FeatureFunctionDescriptor {
 
 // List of FeatureFunctionDescriptors.  Used to store the result of parsing the
 // spec for several feature functions.
-//
-// NOTE: originally a proto, was converted to a class to save binary size.  Name
-// and API mimick the old proto.
 class FeatureExtractorDescriptor {
  public:
   FeatureExtractorDescriptor() {}

@@ -86,8 +86,5 @@ message EmbeddingNetworkProto {
   // Allow extensions.
   extensions 100 to max;
 
-  // NOTE: we skip a few fields from the server-side version of this proto.
-  // Those fields are redundant and we want to save code size in the C++ code
-  // that the proto compiler generates for this proto.
   reserved 6, 8, 9, 10;
 }

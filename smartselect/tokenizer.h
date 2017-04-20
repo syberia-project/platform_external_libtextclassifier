@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-// Tokenizer.
-
 #ifndef LIBTEXTCLASSIFIER_SMARTSELECT_TOKENIZER_H_
 #define LIBTEXTCLASSIFIER_SMARTSELECT_TOKENIZER_H_
 
@@ -58,7 +56,7 @@ class Tokenizer {
 
   // Finds the tokenization role for given codepoint.
   // If the character is not found returns DEFAULT_ROLE.
-  // Internally uses binary search so should be O(log2(# of codepoint_ranges)).
+  // Internally uses binary search so should be O(log(# of codepoint_ranges)).
   TokenizationCodepointRange::Role FindTokenizationRole(int codepoint) const;
 
  private:

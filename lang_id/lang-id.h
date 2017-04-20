@@ -38,7 +38,7 @@ class LangIdImpl;
 
 // Class for detecting the language of a document.
 //
-// NOTE: this class is go/thread-unsafe.
+// NOTE: this class is thread-unsafe.
 class LangId {
  public:
   // Constructs a LangId object, loading an EmbeddingNetworkProto model from the

@@ -79,6 +79,12 @@ class TextClassificationModel {
   // Collection name when email hint is accepted.
   const std::string kEmailHintCollection = "email";
 
+  // Collection name for other.
+  const std::string kOtherCollection = "other";
+
+  // Collection name for phone.
+  const std::string kPhoneCollection = "phone";
+
   SelectionModelOptions selection_options_;
   SharingModelOptions sharing_options_;
 
