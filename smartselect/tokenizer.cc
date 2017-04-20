@@ -50,10 +50,10 @@ TokenizationCodepointRange::Role Tokenizer::FindTokenizationRole(
                                // returned.
                                //
                                // It might seem weird that the condition is
-                               // range < codepoint here but when codepoint ==
-                               // range.end it means it's actually just outside
-                               // of the range, thus the range is less than the
-                               // codepoint.
+                               // range.end <= codepoint here but when codepoint
+                               // == range.end it means it's actually just
+                               // outside of the range, thus the range is less
+                               // than the codepoint.
                                return range.end <= codepoint;
                              });
   if (it != codepoint_ranges_.end() && it->start <= codepoint &&

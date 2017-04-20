@@ -53,8 +53,7 @@ class TaskContext {
   double GetFloatParameter(const std::string &name) const;
 
   // Returns task parameter. If the parameter is not in the task configuration
-  // the default value is returned. Parameters retrieved using these methods
-  // don't need to be defined with a DEFINE_*() macro.
+  // the default value is returned.
   std::string Get(const std::string &name, const std::string &defval) const;
   std::string Get(const std::string &name, const char *defval) const;
   int Get(const std::string &name, int defval) const;

@@ -29,8 +29,6 @@
 namespace libtextclassifier {
 namespace nlp_core {
 
-// Similar to an InputBuffer (file/base/inputbuffer.h) but reads from in-memory
-// data.
 class LowLevelMemReader {
  public:
   // Constructs a MemReader instance that reads at most num_available_bytes
@@ -62,7 +60,7 @@ class LowLevelMemReader {
   //
   // On success, sets *view to be a view of the relevant bytes: view.data()
   // points to the beginning of the string bytes, and view.size() is the number
-  // of such bytes.  Note: DataBlobView is like a google3 StringPiece.
+  // of such bytes.
   bool ReadString(DataBlobView *view) {
     uint32 size;
     if (!Read(&size, sizeof(size))) {

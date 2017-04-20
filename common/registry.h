@@ -221,9 +221,6 @@ class RegisterableClass {
   // case of errors (e.g., unknown component).
   //
   // Passes ownership of the returned pointer to the caller.
-  //
-  // Note: we disable google3-readability-uniqueptr-factory warning, as this is
-  // very hard to change now.
   static T *Create(const std::string &name) {  // NOLINT
     auto *factory = registry()->Lookup(name);
     if (factory == nullptr) {

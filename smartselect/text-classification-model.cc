@@ -29,6 +29,7 @@
 #include "smartselect/text-classification-model.pb.h"
 #include "util/base/logging.h"
 #include "util/utf8/unicodetext.h"
+#include "unicode/uchar.h"
 
 namespace libtextclassifier {
 
@@ -38,6 +39,23 @@ using nlp_core::FeatureVector;
 using nlp_core::MemoryImageReader;
 using nlp_core::MmapFile;
 using nlp_core::MmapHandle;
+
+namespace {
+
+int CountDigits(const std::string& str, CodepointSpan selection_indices) {
+  int count = 0;
+  int i = 0;
+  const UnicodeText unicode_str = UTF8ToUnicodeText(str, /*do_copy=*/false);
+  for (auto it = unicode_str.begin(); it != unicode_str.end(); ++it, ++i) {
+    if (i >= selection_indices.first && i < selection_indices.second &&
+        u_isdigit(*it)) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+}  // namespace
 
 CodepointSpan TextClassificationModel::StripPunctuation(
     CodepointSpan selection, const std::string& context) const {
@@ -221,7 +239,7 @@ EmbeddingNetwork::Vector TextClassificationModel::InferInternal(
   std::vector<Token> tokens;
   int click_pos;
   std::unique_ptr<CachedFeatures> cached_features;
-  int embedding_size = network.EmbeddingSize(0);
+  const int embedding_size = network.EmbeddingSize(0);
   if (!feature_processor.ExtractFeatures(
           context, span, /*relative_click_span=*/{0, 0},
           CreateFeatureVectorFn(network, embedding_size),
@@ -334,33 +352,13 @@ TextClassificationModel::SuggestSelectionInternal(
   return BestSelectionSpan(click_indices, scores, selection_label_spans);
 }
 
-namespace {
-
-int GetClickTokenIndex(const std::vector<Token>& tokens,
-                       CodepointSpan click_indices) {
-  TokenSpan span = CodepointSpanToTokenSpan(tokens, click_indices);
-  if (span.second - span.first == 1) {
-    return span.first;
-  } else {
-    for (int i = 0; i < tokens.size(); i++) {
-      if (tokens[i].start <= click_indices.first &&
-          tokens[i].end >= click_indices.second) {
-        return i;
-      }
-    }
-    return kInvalidIndex;
-  }
-}
-
-}  // namespace
-
 // Implements a greedy-search-like algorithm for making selections symmetric.
 //
 // Steps:
 // 1. Get a set of selection proposals from places around the clicked word.
 // 2. For each proposal (going from highest-scoring), check if the tokens that
-//    the proposal selects are still free, otherwise claims them, if a proposal
-//    that contains the clicked token is found, it is returned as the
+//    the proposal selects are still free, in which case it claims them, if a
+//    proposal that contains the clicked token is found, it is returned as the
 //    suggestion.
 //
 // This algorithm should ensure that if a selection is proposed, it does not
@@ -480,29 +478,35 @@ TextClassificationModel::ClassifyText(const std::string& context,
   EmbeddingNetwork::Vector scores =
       InferInternal(context, selection_indices, *sharing_feature_processor_,
                     *sharing_network_, sharing_feature_fn_, nullptr);
-  if (scores.empty()) {
-    TC_LOG(ERROR) << "Using default class";
-    return {};
-  }
-  if (!scores.empty() &&
-      scores.size() == sharing_feature_processor_->NumCollections()) {
-    scores = nlp_core::ComputeSoftmax(scores);
-
-    std::vector<std::pair<std::string, float>> result;
-    for (int i = 0; i < scores.size(); i++) {
-      result.push_back(
-          {sharing_feature_processor_->LabelToCollection(i), scores[i]});
-    }
-    std::sort(result.begin(), result.end(),
-              [](const std::pair<std::string, float>& a,
-                 const std::pair<std::string, float>& b) {
-                return a.second > b.second;
-              });
-    return result;
-  } else {
+  if (scores.empty() ||
+      scores.size() != sharing_feature_processor_->NumCollections()) {
     TC_LOG(ERROR) << "Using default class: scores.size() = " << scores.size();
     return {};
   }
+
+  scores = nlp_core::ComputeSoftmax(scores);
+
+  std::vector<std::pair<std::string, float>> result;
+  for (int i = 0; i < scores.size(); i++) {
+    result.push_back(
+        {sharing_feature_processor_->LabelToCollection(i), scores[i]});
+  }
+  std::sort(result.begin(), result.end(),
+            [](const std::pair<std::string, float>& a,
+               const std::pair<std::string, float>& b) {
+              return a.second > b.second;
+            });
+
+  // Phone class sanity check.
+  if (result.begin()->first == kPhoneCollection) {
+    const int digit_count = CountDigits(context, selection_indices);
+    if (digit_count < sharing_options_.phone_min_num_digits() ||
+        digit_count > sharing_options_.phone_max_num_digits()) {
+      return {{kOtherCollection, 1.0}};
+    }
+  }
+
+  return result;
 }
 
 }  // namespace libtextclassifier

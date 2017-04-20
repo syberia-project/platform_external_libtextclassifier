@@ -262,21 +262,6 @@ class LangIdImpl {
   // TaskInput of context.  Note: that TaskInput should be a ListOfStrings proto
   // with a single element, the serialized form of a ListOfStrings.
   //
-  // TC_STRIP
-  //
-  // Indeed, we have two nested ListOfStrings.  Here's why:
-  //
-  // The first (outermost) ListOfStrings: in the original model trained by our
-  // workflow (on server side), we had a recordio file with a single record (the
-  // serialized dictionary); we don't have simple code to read recordio on
-  // mobile; instead, we convert a recordio file into a list of strings, one
-  // string for each record.
-  //
-  // The inner ListOfStrings: our server-side code uses a specialized proto
-  // (DictionaryProto).  That has the same wire-format as ListOfStrings: to save
-  // code size on mobile, we reuse ListOfStrings.
-  //
-  // TC_END_STRIP
   bool ParseListOfKnownLanguages(const InMemoryModelData &model_data,
                                  TaskContext *context) {
     const std::string input_name = "language-name-id-map";
