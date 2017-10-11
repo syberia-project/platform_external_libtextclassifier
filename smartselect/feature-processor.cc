@@ -24,9 +24,11 @@
 #include "util/base/logging.h"
 #include "util/strings/utf8.h"
 #include "util/utf8/unicodetext.h"
+#ifndef LIBTEXTCLASSIFIER_DISABLE_ICU_SUPPORT
 #include "unicode/brkiter.h"
 #include "unicode/errorcode.h"
 #include "unicode/uchar.h"
+#endif
 
 namespace libtextclassifier {
 
@@ -50,6 +52,10 @@ TokenFeatureExtractorOptions BuildTokenFeatureExtractorOptions(
   }
   extractor_options.remap_digits = options.remap_digits();
   extractor_options.lowercase_tokens = options.lowercase_tokens();
+
+  for (const auto& chargram : options.allowed_chargrams()) {
+    extractor_options.allowed_chargrams.insert(chargram);
+  }
 
   return extractor_options;
 }
@@ -173,8 +179,10 @@ void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
 }  // namespace internal
 
 std::string FeatureProcessor::GetDefaultCollection() const {
-  if (options_.default_collection() >= options_.collections_size()) {
-    TC_LOG(ERROR) << "No collections specified. Returning empty string.";
+  if (options_.default_collection() < 0 ||
+      options_.default_collection() >= options_.collections_size()) {
+    TC_LOG(ERROR)
+        << "Invalid or missing default collection. Returning empty string.";
     return "";
   }
   return options_.collections(options_.default_collection());
@@ -217,18 +225,32 @@ bool FeatureProcessor::LabelToSpan(
     return false;
   }
 
-  const int result_begin_token = token_span.first;
-  const int result_begin_codepoint =
-      tokens[options_.context_size() - result_begin_token].start;
-  const int result_end_token = token_span.second;
-  const int result_end_codepoint =
-      tokens[options_.context_size() + result_end_token].end;
+  const int result_begin_token_index = token_span.first;
+  const Token& result_begin_token =
+      tokens[options_.context_size() - result_begin_token_index];
+  const int result_begin_codepoint = result_begin_token.start;
+  const int result_end_token_index = token_span.second;
+  const Token& result_end_token =
+      tokens[options_.context_size() + result_end_token_index];
+  const int result_end_codepoint = result_end_token.end;
 
   if (result_begin_codepoint == kInvalidIndex ||
       result_end_codepoint == kInvalidIndex) {
     *span = CodepointSpan({kInvalidIndex, kInvalidIndex});
   } else {
-    *span = CodepointSpan({result_begin_codepoint, result_end_codepoint});
+    const UnicodeText token_begin_unicode =
+        UTF8ToUnicodeText(result_begin_token.value, /*do_copy=*/false);
+    UnicodeText::const_iterator token_begin = token_begin_unicode.begin();
+    const UnicodeText token_end_unicode =
+        UTF8ToUnicodeText(result_end_token.value, /*do_copy=*/false);
+    UnicodeText::const_iterator token_end = token_end_unicode.end();
+
+    const int begin_ignored = CountIgnoredSpanBoundaryCodepoints(
+        token_begin, token_begin_unicode.end(), /*count_from_beginning=*/true);
+    const int end_ignored = CountIgnoredSpanBoundaryCodepoints(
+        token_end_unicode.begin(), token_end, /*count_from_beginning=*/false);
+    *span = CodepointSpan({result_begin_codepoint + begin_ignored,
+                           result_end_codepoint - end_ignored});
   }
   return true;
 }
@@ -274,14 +296,28 @@ bool FeatureProcessor::SpanToLabel(
 
   // Check that the spanned tokens cover the whole span.
   bool tokens_match_span;
+  const CodepointIndex tokens_start = tokens[click_position - span_left].start;
+  const CodepointIndex tokens_end = tokens[click_position + span_right].end;
   if (options_.snap_label_span_boundaries_to_containing_tokens()) {
-    tokens_match_span =
-        tokens[click_position - span_left].start <= span.first &&
-        tokens[click_position + span_right].end >= span.second;
+    tokens_match_span = tokens_start <= span.first && tokens_end >= span.second;
   } else {
-    tokens_match_span =
-        tokens[click_position - span_left].start == span.first &&
-        tokens[click_position + span_right].end == span.second;
+    const UnicodeText token_left_unicode = UTF8ToUnicodeText(
+        tokens[click_position - span_left].value, /*do_copy=*/false);
+    const UnicodeText token_right_unicode = UTF8ToUnicodeText(
+        tokens[click_position + span_right].value, /*do_copy=*/false);
+
+    UnicodeText::const_iterator span_begin = token_left_unicode.begin();
+    UnicodeText::const_iterator span_end = token_right_unicode.end();
+
+    const int num_punctuation_start = CountIgnoredSpanBoundaryCodepoints(
+        span_begin, token_left_unicode.end(), /*count_from_beginning=*/true);
+    const int num_punctuation_end = CountIgnoredSpanBoundaryCodepoints(
+        token_right_unicode.begin(), span_end, /*count_from_beginning=*/false);
+
+    tokens_match_span = tokens_start <= span.first &&
+                        tokens_start + num_punctuation_start >= span.first &&
+                        tokens_end >= span.second &&
+                        tokens_end - num_punctuation_end <= span.second;
   }
 
   if (tokens_match_span) {
@@ -453,6 +489,77 @@ void FeatureProcessor::PrepareCodepointRanges(
             });
 }
 
+void FeatureProcessor::PrepareIgnoredSpanBoundaryCodepoints() {
+  for (const int codepoint : options_.ignored_span_boundary_codepoints()) {
+    ignored_span_boundary_codepoints_.insert(codepoint);
+  }
+}
+
+int FeatureProcessor::CountIgnoredSpanBoundaryCodepoints(
+    const UnicodeText::const_iterator& span_start,
+    const UnicodeText::const_iterator& span_end,
+    bool count_from_beginning) const {
+  if (span_start == span_end) {
+    return 0;
+  }
+
+  UnicodeText::const_iterator it;
+  UnicodeText::const_iterator it_last;
+  if (count_from_beginning) {
+    it = span_start;
+    it_last = span_end;
+    // We can assume that the string is non-zero length because of the check
+    // above, thus the decrement is always valid here.
+    --it_last;
+  } else {
+    it = span_end;
+    it_last = span_start;
+    // We can assume that the string is non-zero length because of the check
+    // above, thus the decrement is always valid here.
+    --it;
+  }
+
+  // Move until we encounter a non-ignored character.
+  int num_ignored = 0;
+  while (ignored_span_boundary_codepoints_.find(*it) !=
+         ignored_span_boundary_codepoints_.end()) {
+    ++num_ignored;
+
+    if (it == it_last) {
+      break;
+    }
+
+    if (count_from_beginning) {
+      ++it;
+    } else {
+      --it;
+    }
+  }
+
+  return num_ignored;
+}
+
+CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
+    const std::string& context, CodepointSpan span) const {
+  const UnicodeText context_unicode =
+      UTF8ToUnicodeText(context, /*do_copy=*/false);
+  UnicodeText::const_iterator span_begin = context_unicode.begin();
+  std::advance(span_begin, span.first);
+  UnicodeText::const_iterator span_end = context_unicode.begin();
+  std::advance(span_end, span.second);
+
+  const int start_offset = CountIgnoredSpanBoundaryCodepoints(
+      span_begin, span_end, /*count_from_beginning=*/true);
+  const int end_offset = CountIgnoredSpanBoundaryCodepoints(
+      span_begin, span_end, /*count_from_beginning=*/false);
+
+  if (span.first + start_offset < span.second - end_offset) {
+    return {span.first + start_offset, span.second - end_offset};
+  } else {
+    return {span.first, span.first};
+  }
+}
+
 float FeatureProcessor::SupportedCodepointsRatio(
     int click_pos, const std::vector<Token>& tokens) const {
   int num_supported = 0;
@@ -614,6 +721,10 @@ bool FeatureProcessor::ExtractFeatures(
     }
   }
 
+  if (relative_click_span == std::make_pair(kInvalidIndex, kInvalidIndex)) {
+    relative_click_span = {tokens->size() - 1, tokens->size() - 1};
+  }
+
   internal::StripOrPadTokens(relative_click_span, options_.context_size(),
                              tokens, click_pos);
 
@@ -621,8 +732,8 @@ bool FeatureProcessor::ExtractFeatures(
     const float supported_codepoint_ratio =
         SupportedCodepointsRatio(*click_pos, *tokens);
     if (supported_codepoint_ratio < options_.min_supported_codepoint_ratio()) {
-      TC_LOG(INFO) << "Not enough supported codepoints in the context: "
-                   << supported_codepoint_ratio;
+      TC_VLOG(1) << "Not enough supported codepoints in the context: "
+                 << supported_codepoint_ratio;
       return false;
     }
   }
@@ -658,6 +769,7 @@ bool FeatureProcessor::ExtractFeatures(
 
 bool FeatureProcessor::ICUTokenize(const std::string& context,
                                    std::vector<Token>* result) const {
+#ifndef LIBTEXTCLASSIFIER_DISABLE_ICU_SUPPORT
   icu::ErrorCode status;
   icu::UnicodeString unicode_text = icu::UnicodeString::fromUTF8(context);
   std::unique_ptr<icu::BreakIterator> break_iterator(
@@ -699,6 +811,10 @@ bool FeatureProcessor::ICUTokenize(const std::string& context,
   }
 
   return true;
+#else
+  TC_LOG(WARNING) << "Can't tokenize, ICU not supported";
+  return false;
+#endif
 }
 
 void FeatureProcessor::InternalRetokenize(const std::string& context,
@@ -758,6 +874,8 @@ void FeatureProcessor::TokenizeSubstring(const UnicodeText& unicode_text,
   // Run the tokenizer and update the token bounds to reflect the offset of the
   // substring.
   std::vector<Token> tokens = tokenizer_.Tokenize(text);
+  // Avoids progressive capacity increases in the for loop.
+  result->reserve(result->size() + tokens.size());
   for (Token& token : tokens) {
     token.start += span.first;
     token.end += span.first;

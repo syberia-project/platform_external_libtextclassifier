@@ -64,7 +64,7 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_CFLAGS += $(MY_LIBTEXTCLASSIFIER_CFLAGS)
 LOCAL_STRIP_MODULE := $(LIBTEXTCLASSIFIER_STRIP_OPTS)
 
-LOCAL_SRC_FILES := $(filter-out tests/%,$(call all-subdir-cpp-files))
+LOCAL_SRC_FILES := $(filter-out tests/% %_test.cc,$(call all-subdir-cpp-files))
 LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 
 LOCAL_STATIC_LIBRARIES += libtextclassifier_protos
