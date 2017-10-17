@@ -21,7 +21,6 @@
 #include <memory>
 #include <string>
 
-#include "base.h"
 #include "gtest/gtest.h"
 
 namespace libtextclassifier {
@@ -140,36 +139,11 @@ class TestingTextClassificationModel
   explicit TestingTextClassificationModel(int fd)
       : libtextclassifier::TextClassificationModel(fd) {}
 
-  using libtextclassifier::TextClassificationModel::StripPunctuation;
-
   void DisableClassificationHints() {
     sharing_options_.set_always_accept_url_hint(false);
     sharing_options_.set_always_accept_email_hint(false);
   }
 };
-
-TEST(TextClassificationModelTest, StripPunctuation) {
-  const std::string model_path = GetModelPath();
-  int fd = open(model_path.c_str(), O_RDONLY);
-  std::unique_ptr<TestingTextClassificationModel> model(
-      new TestingTextClassificationModel(fd));
-  close(fd);
-
-  EXPECT_EQ(std::make_pair(3, 10),
-            model->StripPunctuation({0, 10}, ".,-abcd.()"));
-  EXPECT_EQ(std::make_pair(0, 6), model->StripPunctuation({0, 6}, "(abcd)"));
-  EXPECT_EQ(std::make_pair(1, 5), model->StripPunctuation({0, 6}, "[abcd]"));
-  EXPECT_EQ(std::make_pair(1, 5), model->StripPunctuation({0, 6}, "{abcd}"));
-
-  // Empty result.
-  EXPECT_EQ(std::make_pair(0, 0), model->StripPunctuation({0, 1}, "&"));
-  EXPECT_EQ(std::make_pair(0, 0), model->StripPunctuation({0, 4}, "&-,}"));
-
-  // Invalid indices
-  EXPECT_EQ(std::make_pair(-1, 523), model->StripPunctuation({-1, 523}, "a"));
-  EXPECT_EQ(std::make_pair(-1, -1), model->StripPunctuation({-1, -1}, "a"));
-  EXPECT_EQ(std::make_pair(0, -1), model->StripPunctuation({0, -1}, "a"));
-}
 
 TEST(TextClassificationModelTest, SuggestSelectionNoCrashWithJunk) {
   const std::string model_path = GetModelPath();
@@ -326,6 +300,47 @@ TEST(TextClassificationModelTest, PhoneFiltering) {
                          "phone: (123) 456 789,0001112", {7, 25}, 0)));
   EXPECT_EQ("other", FindBestResult(model->ClassifyText(
                          "phone: (123) 456 789,0001112", {7, 28}, 0)));
+}
+
+TEST(TextClassificationModelTest, Annotate) {
+  const std::string model_path = GetModelPath();
+  int fd = open(model_path.c_str(), O_RDONLY);
+  std::unique_ptr<TestingTextClassificationModel> model(
+      new TestingTextClassificationModel(fd));
+  close(fd);
+
+  std::string test_string =
+      "I saw Barak Obama today at 350 Third Street, Cambridge";
+  std::vector<TextClassificationModel::AnnotatedSpan> result =
+      model->Annotate(test_string);
+
+  std::vector<TextClassificationModel::AnnotatedSpan> expected;
+  expected.emplace_back();
+  expected.back().span = {0, 1};
+  expected.back().classification.push_back({"other", 1.0});
+  expected.emplace_back();
+  expected.back().span = {2, 5};
+  expected.back().classification.push_back({"other", 1.0});
+  expected.emplace_back();
+  expected.back().span = {6, 17};
+  expected.back().classification.push_back({"other", 1.0});
+  expected.emplace_back();
+  expected.back().span = {18, 23};
+  expected.back().classification.push_back({"other", 1.0});
+  expected.emplace_back();
+  expected.back().span = {24, 26};
+  expected.back().classification.push_back({"other", 1.0});
+  expected.emplace_back();
+  expected.back().span = {27, 54};
+  expected.back().classification.push_back({"address", 1.0});
+
+  ASSERT_EQ(result.size(), expected.size());
+  for (int i = 0; i < expected.size(); ++i) {
+    EXPECT_EQ(result[i].span, expected[i].span) << result[i];
+    EXPECT_EQ(result[i].classification[0].first,
+              expected[i].classification[0].first)
+        << result[i];
+  }
 }
 
 }  // namespace
