@@ -14,24 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_BASE_H_
-#define LIBTEXTCLASSIFIER_BASE_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_ENDIAN_H_
+#define LIBTEXTCLASSIFIER_UTIL_BASE_ENDIAN_H_
 
-#include <cassert>
-#include <map>
-#include <string>
-#include <vector>
-
-#include "util/base/config.h"
 #include "util/base/integral_types.h"
 
 namespace libtextclassifier {
-
-#ifdef INTERNAL_BUILD
-typedef basic_string<char> bstring;
-#else
-typedef std::basic_string<char> bstring;
-#endif  // INTERNAL_BUILD
 
 #if defined OS_LINUX || defined OS_CYGWIN || defined OS_ANDROID || \
     defined(__ANDROID__)
@@ -126,4 +114,4 @@ class LittleEndian {
 
 }  // namespace libtextclassifier
 
-#endif  // LIBTEXTCLASSIFIER_BASE_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_ENDIAN_H_
