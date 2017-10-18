@@ -23,12 +23,19 @@
 LOCAL_PATH := $(call my-dir)
 
 # Custom C/C++ compilation flags:
-MY_LIBTEXTCLASSIFIER_CFLAGS := \
-    -Wno-unused-parameter \
-    -Wno-sign-compare \
-    -Wno-missing-field-initializers \
+MY_LIBTEXTCLASSIFIER_WARNING_CFLAGS := \
+    -Wall \
+    -Werror \
     -Wno-ignored-qualifiers \
+    -Wno-missing-field-initializers \
+    -Wno-sign-compare \
+    -Wno-tautological-constant-out-of-range-compare \
     -Wno-undefined-var-template \
+    -Wno-unused-function \
+    -Wno-unused-parameter \
+
+MY_LIBTEXTCLASSIFIER_CFLAGS := \
+    $(MY_LIBTEXTCLASSIFIER_WARNING_CFLAGS) \
     -fvisibility=hidden
 
 # Only enable debug logging in userdebug/eng builds.
@@ -48,6 +55,8 @@ LOCAL_STRIP_MODULE := $(LIBTEXTCLASSIFIER_STRIP_OPTS)
 
 LOCAL_SRC_FILES := $(call all-proto-files-under, .)
 LOCAL_SHARED_LIBRARIES := libprotobuf-cpp-lite
+
+LOCAL_CFLAGS := $(MY_LIBTEXTCLASSIFIER_WARNING_CFLAGS)
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -261,4 +270,5 @@ LOCAL_REQUIRED_MODULES := textclassifier.smartselection.en.model
 LOCAL_REQUIRED_MODULES += textclassifier.smartselection.es.model
 LOCAL_REQUIRED_MODULES += textclassifier.smartselection.de.model
 LOCAL_REQUIRED_MODULES += textclassifier.smartselection.fr.model
+LOCAL_CFLAGS := $(MY_LIBTEXTCLASSIFIER_WARNING_CFLAGS)
 include $(BUILD_STATIC_LIBRARY)
