@@ -12,6 +12,8 @@ cc_library_shared {
         "util/hash/hash.cc"
     ],
     cflags: [
-        "-DNAMESPACE_FOR_HASH_FUNCTIONS=farmhash"
+        "-DNAMESPACE_FOR_HASH_FUNCTIONS=farmhash",
+        "-Wall",
+        "-Werror",
     ],
 }
