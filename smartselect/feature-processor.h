@@ -53,11 +53,6 @@ FeatureProcessorOptions ParseSerializedOptions(
 TokenFeatureExtractorOptions BuildTokenFeatureExtractorOptions(
     const FeatureProcessorOptions& options);
 
-// Removes tokens that are not part of a line of the context which contains
-// given span.
-void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
-                               std::vector<Token>* tokens);
-
 // Splits tokens that contain the selection boundary inside them.
 // E.g. "foo{bar}@google.com" -> "foo", "bar", "@google.com"
 void SplitTokensOnSelectionBoundaries(CodepointSpan selection,
@@ -81,8 +76,12 @@ void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
 }  // namespace internal
 
 // Converts a codepoint span to a token span in the given list of tokens.
-TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
-                                   CodepointSpan codepoint_span);
+// If snap_boundaries_to_containing_tokens is set to true, it is enough for a
+// token to overlap with the codepoint range to be considered part of it.
+// Otherwise it must be fully included in the range.
+TokenSpan CodepointSpanToTokenSpan(
+    const std::vector<Token>& selectable_tokens, CodepointSpan codepoint_span,
+    bool snap_boundaries_to_containing_tokens = false);
 
 // Converts a token span to a codepoint span in the given list of tokens.
 CodepointSpan TokenSpanToCodepointSpan(
@@ -139,8 +138,8 @@ class FeatureProcessor {
 
   // Extracts features as a CachedFeatures object that can be used for repeated
   // inference over token spans in the given context.
-  // When relative_click_span == {kInvalidIndex, kInvalidIndex} then all tokens
-  // extracted from context will be considered.
+  // When input_span == {kInvalidIndex, kInvalidIndex} then, relative_click_span
+  // is ignored, and all tokens extracted from context will be considered.
   bool ExtractFeatures(const std::string& context, CodepointSpan input_span,
                        TokenSpan relative_click_span,
                        const FeatureVectorFn& feature_vector_fn,
@@ -158,6 +157,10 @@ class FeatureProcessor {
   int DenseFeaturesCount() const {
     return feature_extractor_.DenseFeaturesCount();
   }
+
+  // Splits context to several segments according to configuration.
+  std::vector<UnicodeTextRange> SplitContext(
+      const UnicodeText& context_unicode) const;
 
   // Strips boundary codepoints from the span in context and returns the new
   // start and end indices. If the span comprises entirely of boundary
@@ -248,6 +251,11 @@ class FeatureProcessor {
   // string. Does nothing if the start of the span is negative.
   void TokenizeSubstring(const UnicodeText& unicode_text, CodepointSpan span,
                          std::vector<Token>* result) const;
+
+  // Removes all tokens from tokens that are not on a line (defined by calling
+  // SplitContext on the context) to which span points.
+  void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
+                                 std::vector<Token>* tokens) const;
 
   const TokenFeatureExtractor feature_extractor_;
 

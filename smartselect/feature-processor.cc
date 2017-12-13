@@ -119,34 +119,14 @@ void SplitTokensOnSelectionBoundaries(CodepointSpan selection,
   }
 }
 
-void FindSubstrings(const UnicodeText& t, const std::set<char32>& codepoints,
-                    std::vector<UnicodeTextRange>* ranges) {
-  UnicodeText::const_iterator start = t.begin();
-  UnicodeText::const_iterator curr = start;
-  UnicodeText::const_iterator end = t.end();
-  for (; curr != end; ++curr) {
-    if (codepoints.find(*curr) != codepoints.end()) {
-      if (start != curr) {
-        ranges->push_back(std::make_pair(start, curr));
-      }
-      start = curr;
-      ++start;
-    }
-  }
-  if (start != end) {
-    ranges->push_back(std::make_pair(start, end));
-  }
-}
+}  // namespace internal
 
-void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
-                               std::vector<Token>* tokens) {
+void FeatureProcessor::StripTokensFromOtherLines(
+    const std::string& context, CodepointSpan span,
+    std::vector<Token>* tokens) const {
   const UnicodeText context_unicode = UTF8ToUnicodeText(context,
                                                         /*do_copy=*/false);
-  std::vector<UnicodeTextRange> lines;
-  std::set<char32> codepoints;
-  codepoints.insert('\n');
-  codepoints.insert('|');
-  internal::FindSubstrings(context_unicode, codepoints, &lines);
+  std::vector<UnicodeTextRange> lines = SplitContext(context_unicode);
 
   auto span_start = context_unicode.begin();
   if (span.first > 0) {
@@ -175,8 +155,6 @@ void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
     }
   }
 }
-
-}  // namespace internal
 
 std::string FeatureProcessor::GetDefaultCollection() const {
   if (options_.default_collection() < 0 ||
@@ -249,8 +227,14 @@ bool FeatureProcessor::LabelToSpan(
         token_begin, token_begin_unicode.end(), /*count_from_beginning=*/true);
     const int end_ignored = CountIgnoredSpanBoundaryCodepoints(
         token_end_unicode.begin(), token_end, /*count_from_beginning=*/false);
-    *span = CodepointSpan({result_begin_codepoint + begin_ignored,
-                           result_end_codepoint - end_ignored});
+    // In case everything would be stripped, set the span to the original
+    // beginning and zero length.
+    if (begin_ignored == (result_end_codepoint - result_begin_codepoint)) {
+      *span = {result_begin_codepoint, result_begin_codepoint};
+    } else {
+      *span = CodepointSpan({result_begin_codepoint + begin_ignored,
+                             result_end_codepoint - end_ignored});
+    }
   }
   return true;
 }
@@ -339,16 +323,23 @@ int FeatureProcessor::TokenSpanToLabel(const TokenSpan& span) const {
 }
 
 TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
-                                   CodepointSpan codepoint_span) {
+                                   CodepointSpan codepoint_span,
+                                   bool snap_boundaries_to_containing_tokens) {
   const int codepoint_start = std::get<0>(codepoint_span);
   const int codepoint_end = std::get<1>(codepoint_span);
 
   TokenIndex start_token = kInvalidIndex;
   TokenIndex end_token = kInvalidIndex;
   for (int i = 0; i < selectable_tokens.size(); ++i) {
-    if (codepoint_start <= selectable_tokens[i].start &&
-        codepoint_end >= selectable_tokens[i].end &&
-        !selectable_tokens[i].is_padding) {
+    bool is_token_in_span;
+    if (snap_boundaries_to_containing_tokens) {
+      is_token_in_span = codepoint_start < selectable_tokens[i].end &&
+                         codepoint_end > selectable_tokens[i].start;
+    } else {
+      is_token_in_span = codepoint_start <= selectable_tokens[i].start &&
+                         codepoint_end >= selectable_tokens[i].end;
+    }
+    if (is_token_in_span && !selectable_tokens[i].is_padding) {
       if (start_token == kInvalidIndex) {
         start_token = i;
       }
@@ -539,6 +530,43 @@ int FeatureProcessor::CountIgnoredSpanBoundaryCodepoints(
   return num_ignored;
 }
 
+namespace {
+
+void FindSubstrings(const UnicodeText& t, const std::set<char32>& codepoints,
+                    std::vector<UnicodeTextRange>* ranges) {
+  UnicodeText::const_iterator start = t.begin();
+  UnicodeText::const_iterator curr = start;
+  UnicodeText::const_iterator end = t.end();
+  for (; curr != end; ++curr) {
+    if (codepoints.find(*curr) != codepoints.end()) {
+      if (start != curr) {
+        ranges->push_back(std::make_pair(start, curr));
+      }
+      start = curr;
+      ++start;
+    }
+  }
+  if (start != end) {
+    ranges->push_back(std::make_pair(start, end));
+  }
+}
+
+}  // namespace
+
+std::vector<UnicodeTextRange> FeatureProcessor::SplitContext(
+    const UnicodeText& context_unicode) const {
+  if (options_.only_use_line_with_click()) {
+    std::vector<UnicodeTextRange> lines;
+    std::set<char32> codepoints;
+    codepoints.insert('\n');
+    codepoints.insert('|');
+    FindSubstrings(context_unicode, codepoints, &lines);
+    return lines;
+  } else {
+    return {{context_unicode.begin(), context_unicode.end()}};
+  }
+}
+
 CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
     const std::string& context, CodepointSpan span) const {
   const UnicodeText context_unicode =
@@ -657,7 +685,7 @@ void FeatureProcessor::TokenizeAndFindClick(const std::string& context,
   }
 
   if (options_.only_use_line_with_click()) {
-    internal::StripTokensFromOtherLines(context, input_span, tokens);
+    StripTokensFromOtherLines(context, input_span, tokens);
   }
 
   int local_click_pos;
@@ -712,17 +740,20 @@ bool FeatureProcessor::ExtractFeatures(
     std::unique_ptr<CachedFeatures>* cached_features) const {
   TokenizeAndFindClick(context, input_span, tokens, click_pos);
 
-  // If the default click method failed, let's try to do sub-token matching
-  // before we fail.
-  if (*click_pos == kInvalidIndex) {
-    *click_pos = internal::CenterTokenFromClick(input_span, *tokens);
+  if (input_span.first != kInvalidIndex && input_span.second != kInvalidIndex) {
+    // If the default click method failed, let's try to do sub-token matching
+    // before we fail.
     if (*click_pos == kInvalidIndex) {
-      return false;
+      *click_pos = internal::CenterTokenFromClick(input_span, *tokens);
+      if (*click_pos == kInvalidIndex) {
+        return false;
+      }
     }
-  }
-
-  if (relative_click_span == std::make_pair(kInvalidIndex, kInvalidIndex)) {
-    relative_click_span = {tokens->size() - 1, tokens->size() - 1};
+  } else {
+    // If input_span is unspecified, click the first token and extract features
+    // from all tokens.
+    *click_pos = 0;
+    relative_click_span = {0, tokens->size()};
   }
 
   internal::StripOrPadTokens(relative_click_span, options_.context_size(),

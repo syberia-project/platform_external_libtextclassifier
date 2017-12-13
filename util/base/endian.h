@@ -24,13 +24,34 @@ namespace libtextclassifier {
 #if defined OS_LINUX || defined OS_CYGWIN || defined OS_ANDROID || \
     defined(__ANDROID__)
 #include <endian.h>
+#elif defined(__APPLE__)
+#include <machine/endian.h>
+// Add linux style defines.
+#ifndef __BYTE_ORDER
+#define __BYTE_ORDER BYTE_ORDER
+#endif  // __BYTE_ORDER
+#ifndef __LITTLE_ENDIAN
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#endif  // __LITTLE_ENDIAN
+#ifndef __BIG_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
+#endif  // __BIG_ENDIAN
 #endif
 
 // The following guarantees declaration of the byte swap functions, and
 // defines __BYTE_ORDER for MSVC
 #if defined(__GLIBC__) || defined(__CYGWIN__)
 #include <byteswap.h>  // IWYU pragma: export
-
+// The following section defines the byte swap functions for OS X / iOS,
+// which does not ship with byteswap.h.
+#elif defined(__APPLE__)
+// Make sure that byte swap functions are not already defined.
+#if !defined(bswap_16)
+#include <libkern/OSByteOrder.h>
+#define bswap_16(x) OSSwapInt16(x)
+#define bswap_32(x) OSSwapInt32(x)
+#define bswap_64(x) OSSwapInt64(x)
+#endif  // !defined(bswap_16)
 #else
 #define GG_LONGLONG(x) x##LL
 #define GG_ULONGLONG(x) x##ULL
