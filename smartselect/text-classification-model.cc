@@ -61,6 +61,17 @@ int CountDigits(const std::string& str, CodepointSpan selection_indices) {
   return count;
 }
 
+std::string ExtractSelection(const std::string& context,
+                             CodepointSpan selection_indices) {
+  const UnicodeText context_unicode =
+      UTF8ToUnicodeText(context, /*do_copy=*/false);
+  auto selection_begin = context_unicode.begin();
+  std::advance(selection_begin, selection_indices.first);
+  auto selection_end = context_unicode.begin();
+  std::advance(selection_end, selection_indices.second);
+  return UnicodeText::UTF8Substring(selection_begin, selection_end);
+}
+
 #ifndef LIBTEXTCLASSIFIER_DISABLE_ICU_SUPPORT
 bool MatchesRegex(const icu::RegexPattern* regex, const std::string& context) {
   const icu::UnicodeString unicode_context(context.c_str(), context.size(),
@@ -153,6 +164,31 @@ FeatureVectorFn CreateFeatureVectorFn(const EmbeddingNetwork& network,
 
 }  // namespace
 
+void TextClassificationModel::InitializeSharingRegexPatterns(
+    const std::vector<SharingModelOptions::RegexPattern>& patterns) {
+#ifndef LIBTEXTCLASSIFIER_DISABLE_ICU_SUPPORT
+  // Initialize pattern recognizers.
+  for (const auto& regex_pattern : patterns) {
+    UErrorCode status = U_ZERO_ERROR;
+    std::unique_ptr<icu::RegexPattern> compiled_pattern(
+        icu::RegexPattern::compile(
+            icu::UnicodeString(regex_pattern.pattern().c_str(),
+                               regex_pattern.pattern().size(), "utf-8"),
+            0 /* flags */, status));
+    if (U_FAILURE(status)) {
+      TC_LOG(WARNING) << "Failed to load pattern" << regex_pattern.pattern();
+    } else {
+      regex_patterns_.push_back(
+          {regex_pattern.collection_name(), std::move(compiled_pattern)});
+    }
+  }
+#else
+  if (!patterns.empty()) {
+    TC_LOG(WARNING) << "ICU not supported regexp matchers ignored.";
+  }
+#endif
+}
+
 bool TextClassificationModel::LoadModels(const void* addr, int size) {
   const char *selection_model, *sharing_model;
   int selection_model_length, sharing_model_length;
@@ -187,27 +223,9 @@ bool TextClassificationModel::LoadModels(const void* addr, int size) {
   sharing_feature_fn_ = CreateFeatureVectorFn(
       *sharing_network_, sharing_network_->EmbeddingSize(0));
 
-#ifndef LIBTEXTCLASSIFIER_DISABLE_ICU_SUPPORT
-  // Initialize pattern recognizers.
-  for (const auto& regex_pattern : sharing_options_.regex_pattern()) {
-    UErrorCode status = U_ZERO_ERROR;
-    std::unique_ptr<icu::RegexPattern> compiled_pattern(
-        icu::RegexPattern::compile(
-            icu::UnicodeString(regex_pattern.pattern().c_str(),
-                               regex_pattern.pattern().size(), "utf-8"),
-            0 /* flags */, status));
-    if (U_FAILURE(status)) {
-      TC_LOG(WARNING) << "Failed to load pattern" << regex_pattern.pattern();
-    } else {
-      regex_patterns_.push_back(
-          {regex_pattern.collection_name(), std::move(compiled_pattern)});
-    }
-  }
-#else
-  if (sharing_options_.regex_pattern_size() > 0) {
-    TC_LOG(WARNING) << "ICU not supported regexp matchers ignored.";
-  }
-#endif
+  InitializeSharingRegexPatterns(std::vector<SharingModelOptions::RegexPattern>(
+      sharing_options_.regex_pattern().begin(),
+      sharing_options_.regex_pattern().end()));
 
   return true;
 }
@@ -279,6 +297,104 @@ EmbeddingNetwork::Vector TextClassificationModel::InferInternal(
   return scores;
 }
 
+namespace {
+
+// Returns true if given codepoint is contained in the given span in context.
+bool IsCodepointInSpan(const char32 codepoint, const std::string& context,
+                       const CodepointSpan span) {
+  const UnicodeText context_unicode =
+      UTF8ToUnicodeText(context, /*do_copy=*/false);
+
+  auto begin_it = context_unicode.begin();
+  std::advance(begin_it, span.first);
+  auto end_it = context_unicode.begin();
+  std::advance(end_it, span.second);
+
+  return std::find(begin_it, end_it, codepoint) != end_it;
+}
+
+// Returns the first codepoint of the span.
+char32 FirstSpanCodepoint(const std::string& context,
+                          const CodepointSpan span) {
+  const UnicodeText context_unicode =
+      UTF8ToUnicodeText(context, /*do_copy=*/false);
+
+  auto it = context_unicode.begin();
+  std::advance(it, span.first);
+  return *it;
+}
+
+// Returns the last codepoint of the span.
+char32 LastSpanCodepoint(const std::string& context, const CodepointSpan span) {
+  const UnicodeText context_unicode =
+      UTF8ToUnicodeText(context, /*do_copy=*/false);
+
+  auto it = context_unicode.begin();
+  std::advance(it, span.second - 1);
+  return *it;
+}
+
+}  // namespace
+
+#ifndef LIBTEXTCLASSIFIER_DISABLE_ICU_SUPPORT
+
+namespace {
+
+bool IsOpenBracket(const char32 codepoint) {
+  return u_getIntPropertyValue(codepoint, UCHAR_BIDI_PAIRED_BRACKET_TYPE) ==
+         U_BPT_OPEN;
+}
+
+bool IsClosingBracket(const char32 codepoint) {
+  return u_getIntPropertyValue(codepoint, UCHAR_BIDI_PAIRED_BRACKET_TYPE) ==
+         U_BPT_CLOSE;
+}
+
+}  // namespace
+
+// If the first or the last codepoint of the given span is a bracket, the
+// bracket is stripped if the span does not contain its corresponding paired
+// version.
+CodepointSpan StripUnpairedBrackets(const std::string& context,
+                                    CodepointSpan span) {
+  if (context.empty()) {
+    return span;
+  }
+
+  const char32 begin_char = FirstSpanCodepoint(context, span);
+
+  const char32 paired_begin_char = u_getBidiPairedBracket(begin_char);
+  if (paired_begin_char != begin_char) {
+    if (!IsOpenBracket(begin_char) ||
+        !IsCodepointInSpan(paired_begin_char, context, span)) {
+      ++span.first;
+    }
+  }
+
+  if (span.first == span.second) {
+    return span;
+  }
+
+  const char32 end_char = LastSpanCodepoint(context, span);
+  const char32 paired_end_char = u_getBidiPairedBracket(end_char);
+  if (paired_end_char != end_char) {
+    if (!IsClosingBracket(end_char) ||
+        !IsCodepointInSpan(paired_end_char, context, span)) {
+      --span.second;
+    }
+  }
+
+  // Should not happen, but let's make sure.
+  if (span.first > span.second) {
+    TC_LOG(WARNING) << "Inverse indices result: " << span.first << ", "
+                    << span.second;
+    span.second = span.first;
+  }
+
+  return span;
+}
+#endif
+
 CodepointSpan TextClassificationModel::SuggestSelection(
     const std::string& context, CodepointSpan click_indices) const {
   if (!initialized_) {
@@ -286,19 +402,15 @@ CodepointSpan TextClassificationModel::SuggestSelection(
     return click_indices;
   }
 
-  if (std::get<0>(click_indices) >= std::get<1>(click_indices)) {
-    TC_VLOG(1) << "Trying to run SuggestSelection with invalid indices:"
-               << std::get<0>(click_indices) << " "
-               << std::get<1>(click_indices);
-    return click_indices;
-  }
+  const int context_codepoint_size =
+      UTF8ToUnicodeText(context, /*do_copy=*/false).size();
 
-  const UnicodeText context_unicode =
-      UTF8ToUnicodeText(context, /*do_copy=*/false);
-  const int context_length =
-      std::distance(context_unicode.begin(), context_unicode.end());
-  if (std::get<0>(click_indices) >= context_length ||
-      std::get<1>(click_indices) > context_length) {
+  if (click_indices.first < 0 || click_indices.second < 0 ||
+      click_indices.first >= context_codepoint_size ||
+      click_indices.second > context_codepoint_size ||
+      click_indices.first >= click_indices.second) {
+    TC_VLOG(1) << "Trying to run SuggestSelection with invalid indices: "
+               << click_indices.first << " " << click_indices.second;
     return click_indices;
   }
 
@@ -309,6 +421,16 @@ CodepointSpan TextClassificationModel::SuggestSelection(
     float score;
     std::tie(result, score) = SuggestSelectionInternal(context, click_indices);
   }
+
+#ifndef LIBTEXTCLASSIFIER_DISABLE_ICU_SUPPORT
+  if (selection_options_.strip_unpaired_brackets()) {
+    const CodepointSpan stripped_result =
+        StripUnpairedBrackets(context, result);
+    if (stripped_result.first != stripped_result.second) {
+      result = stripped_result;
+    }
+  }
+#endif
 
   return result;
 }
@@ -422,8 +544,10 @@ TextClassificationModel::ClassifyText(const std::string& context,
 
   // Check whether any of the regular expressions match.
 #ifndef LIBTEXTCLASSIFIER_DISABLE_ICU_SUPPORT
+  const std::string selection_text =
+      ExtractSelection(context, selection_indices);
   for (const CompiledRegexPattern& regex_pattern : regex_patterns_) {
-    if (MatchesRegex(regex_pattern.pattern.get(), context)) {
+    if (MatchesRegex(regex_pattern.pattern.get(), selection_text)) {
       return {{regex_pattern.collection_name, 1.0}};
     }
   }
@@ -468,10 +592,7 @@ std::vector<CodepointSpan> TextClassificationModel::Chunk(
   std::unique_ptr<CachedFeatures> cached_features;
   std::vector<Token> tokens;
   int click_index;
-
   int embedding_size = selection_network_->EmbeddingSize(0);
-  // TODO(zilka): Refactor the ExtractFeatures API to smoothly support the
-  // different usecases. Now it's a lot click-centric.
   if (!selection_feature_processor_->ExtractFeatures(
           context, click_span, relative_click_span, selection_feature_fn_,
           embedding_size + selection_feature_processor_->DenseFeaturesCount(),
@@ -480,8 +601,15 @@ std::vector<CodepointSpan> TextClassificationModel::Chunk(
     return {};
   }
 
-  if (relative_click_span == std::make_pair(kInvalidIndex, kInvalidIndex)) {
-    relative_click_span = {tokens.size() - 1, tokens.size() - 1};
+  int first_token;
+  int last_token;
+  if (relative_click_span.first == kInvalidIndex ||
+      relative_click_span.second == kInvalidIndex) {
+    first_token = 0;
+    last_token = tokens.size();
+  } else {
+    first_token = click_index - relative_click_span.first;
+    last_token = click_index + relative_click_span.second + 1;
   }
 
   struct SelectionProposal {
@@ -493,51 +621,45 @@ std::vector<CodepointSpan> TextClassificationModel::Chunk(
 
   // Scan in the symmetry context for selection span proposals.
   std::vector<SelectionProposal> proposals;
+  for (int token_index = first_token; token_index < last_token; ++token_index) {
+    if (token_index < 0 || token_index >= tokens.size() ||
+        tokens[token_index].is_padding) {
+      continue;
+    }
 
-  for (int i = -relative_click_span.first; i < relative_click_span.second + 1;
-       ++i) {
-    const int token_index = click_index + i;
-    if (token_index >= 0 && token_index < tokens.size() &&
-        !tokens[token_index].is_padding) {
-      float score;
-      VectorSpan<float> features;
-      VectorSpan<Token> output_tokens;
+    float score;
+    VectorSpan<float> features;
+    VectorSpan<Token> output_tokens;
+    std::vector<CodepointSpan> selection_label_spans;
+    CodepointSpan span;
+    if (cached_features->Get(token_index, &features, &output_tokens) &&
+        selection_feature_processor_->SelectionLabelSpans(
+            output_tokens, &selection_label_spans)) {
+      // Add an implicit proposal for each token to be by itself. Every
+      // token should be now represented in the results.
+      proposals.push_back(
+          SelectionProposal{0, token_index, selection_label_spans[0], 0.0});
 
-      if (tokens[token_index].is_padding) {
-        continue;
-      }
+      std::vector<float> scores;
+      selection_network_->ComputeLogits(features, &scores);
 
-      std::vector<CodepointSpan> selection_label_spans;
-      CodepointSpan span;
-      if (cached_features->Get(token_index, &features, &output_tokens) &&
-          selection_feature_processor_->SelectionLabelSpans(
-              output_tokens, &selection_label_spans)) {
-        // Add an implicit proposal for each token to be by itself. Every
-        // token should be now represented in the results.
+      scores = nlp_core::ComputeSoftmax(scores);
+      std::tie(span, score) = BestSelectionSpan({kInvalidIndex, kInvalidIndex},
+                                                scores, selection_label_spans);
+      if (span.first != kInvalidIndex && span.second != kInvalidIndex &&
+          score >= 0) {
+        const int prediction = BestPrediction(scores);
         proposals.push_back(
-            SelectionProposal{0, token_index, selection_label_spans[0], 0.0});
-
-        std::vector<float> scores;
-        selection_network_->ComputeLogits(features, &scores);
-
-        scores = nlp_core::ComputeSoftmax(scores);
-        std::tie(span, score) = BestSelectionSpan(
-            {kInvalidIndex, kInvalidIndex}, scores, selection_label_spans);
-        if (span.first != kInvalidIndex && span.second != kInvalidIndex &&
-            score >= 0) {
-          const int prediction = BestPrediction(scores);
-          proposals.push_back(
-              SelectionProposal{prediction, token_index, span, score});
-        }
-      } else {
-        // Add an implicit proposal for each token to be by itself. Every token
-        // should be now represented in the results.
-        proposals.push_back(SelectionProposal{
-            0,
-            token_index,
-            {tokens[token_index].start, tokens[token_index].end},
-            0.0});
+            SelectionProposal{prediction, token_index, span, score});
       }
+    } else {
+      // Add an implicit proposal for each token to be by itself. Every token
+      // should be now represented in the results.
+      proposals.push_back(SelectionProposal{
+          0,
+          token_index,
+          {tokens[token_index].start, tokens[token_index].end},
+          0.0});
     }
   }
 
@@ -592,9 +714,20 @@ std::vector<CodepointSpan> TextClassificationModel::Chunk(
 
 std::vector<TextClassificationModel::AnnotatedSpan>
 TextClassificationModel::Annotate(const std::string& context) const {
-  std::vector<CodepointSpan> chunks =
-      Chunk(context, /*click_span=*/{0, 1},
-            /*relative_click_span=*/{kInvalidIndex, kInvalidIndex});
+  std::vector<CodepointSpan> chunks;
+  const UnicodeText context_unicode = UTF8ToUnicodeText(context,
+                                                        /*do_copy=*/false);
+  for (const UnicodeTextRange& line :
+       selection_feature_processor_->SplitContext(context_unicode)) {
+    const std::vector<CodepointSpan> local_chunks =
+        Chunk(UnicodeText::UTF8Substring(line.first, line.second),
+              /*click_span=*/{kInvalidIndex, kInvalidIndex},
+              /*relative_click_span=*/{kInvalidIndex, kInvalidIndex});
+    const int offset = std::distance(context_unicode.begin(), line.first);
+    for (CodepointSpan chunk : local_chunks) {
+      chunks.push_back({chunk.first + offset, chunk.second + offset});
+    }
+  }
 
   std::vector<TextClassificationModel::AnnotatedSpan> result;
   for (const CodepointSpan& chunk : chunks) {

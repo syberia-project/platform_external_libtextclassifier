@@ -348,10 +348,7 @@ template <> uint128_t DebugTweak(uint128_t x) {
   return x;
 }
 
-}  // namespace NAMESPACE_FOR_HASH_FUNCTIONS;
-
 using namespace std;
-using namespace NAMESPACE_FOR_HASH_FUNCTIONS;
 namespace farmhashna {
 #undef Fetch
 #define Fetch Fetch64
@@ -1407,7 +1404,6 @@ uint128_t Fingerprint128(const char* s, size_t len) {
   return CityHash128(s, len);
 }
 }  // namespace farmhashcc
-namespace NAMESPACE_FOR_HASH_FUNCTIONS {
 
 // BASIC STRING HASHING
 

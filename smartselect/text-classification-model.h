@@ -98,10 +98,8 @@ class TextClassificationModel {
   // token determined by click_span and looks at relative_click_span tokens
   // left and right around the click position.
   // If relative_click_span == {kInvalidIndex, kInvalidIndex} then the whole
-  // context is considered, regardless of the click_span (which should point to
-  // the beginning {0, 1}.
+  // context is considered, regardless of the click_span.
   // Returns the chunks sorted by their position in the context string.
-  // TODO(zilka): Tidy up the interface.
   std::vector<CodepointSpan> Chunk(const std::string& context,
                                    CodepointSpan click_span,
                                    TokenSpan relative_click_span) const;
@@ -110,6 +108,9 @@ class TextClassificationModel {
   FeatureProcessor* SelectionFeatureProcessor() const {
     return selection_feature_processor_.get();
   }
+
+  void InitializeSharingRegexPatterns(
+      const std::vector<SharingModelOptions::RegexPattern>& patterns);
 
   // Collection name when url hint is accepted.
   const std::string kUrlHintCollection = "url";
@@ -166,6 +167,12 @@ class TextClassificationModel {
   std::vector<CompiledRegexPattern> regex_patterns_;
 #endif
 };
+
+// If the first or the last codepoint of the given span is a bracket, the
+// bracket is stripped if the span does not contain its corresponding paired
+// version.
+CodepointSpan StripUnpairedBrackets(const std::string& context,
+                                    CodepointSpan span);
 
 // Parses the merged image given as a file descriptor, and reads
 // the ModelOptions proto from the selection model.
