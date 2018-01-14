@@ -25,6 +25,18 @@ namespace {
 using testing::ElementsAreArray;
 using testing::FloatEq;
 
+class TestingFeatureProcessor : public FeatureProcessor {
+ public:
+  using FeatureProcessor::CountIgnoredSpanBoundaryCodepoints;
+  using FeatureProcessor::FeatureProcessor;
+  using FeatureProcessor::ICUTokenize;
+  using FeatureProcessor::IsCodepointInRanges;
+  using FeatureProcessor::SpanToLabel;
+  using FeatureProcessor::StripTokensFromOtherLines;
+  using FeatureProcessor::supported_codepoint_ranges_;
+  using FeatureProcessor::SupportedCodepointsRatio;
+};
+
 TEST(FeatureProcessorTest, SplitTokensOnSelectionBoundariesMiddle) {
   std::vector<Token> tokens{Token("Hělló", 0, 5),
                             Token("fěěbař@google.com", 6, 23),
@@ -107,6 +119,10 @@ TEST(FeatureProcessorTest, SplitTokensOnSelectionBoundariesCrossToken) {
 }
 
 TEST(FeatureProcessorTest, KeepLineWithClickFirst) {
+  FeatureProcessorOptions options;
+  options.set_only_use_line_with_click(true);
+  TestingFeatureProcessor feature_processor(options);
+
   const std::string context = "Fiřst Lině\nSěcond Lině\nThiřd Lině";
   const CodepointSpan span = {0, 5};
   // clang-format off
@@ -119,12 +135,16 @@ TEST(FeatureProcessorTest, KeepLineWithClickFirst) {
   // clang-format on
 
   // Keeps the first line.
-  internal::StripTokensFromOtherLines(context, span, &tokens);
+  feature_processor.StripTokensFromOtherLines(context, span, &tokens);
   EXPECT_THAT(tokens,
               ElementsAreArray({Token("Fiřst", 0, 5), Token("Lině", 6, 10)}));
 }
 
 TEST(FeatureProcessorTest, KeepLineWithClickSecond) {
+  FeatureProcessorOptions options;
+  options.set_only_use_line_with_click(true);
+  TestingFeatureProcessor feature_processor(options);
+
   const std::string context = "Fiřst Lině\nSěcond Lině\nThiřd Lině";
   const CodepointSpan span = {18, 22};
   // clang-format off
@@ -137,12 +157,16 @@ TEST(FeatureProcessorTest, KeepLineWithClickSecond) {
   // clang-format on
 
   // Keeps the first line.
-  internal::StripTokensFromOtherLines(context, span, &tokens);
+  feature_processor.StripTokensFromOtherLines(context, span, &tokens);
   EXPECT_THAT(tokens, ElementsAreArray(
                           {Token("Sěcond", 11, 17), Token("Lině", 18, 22)}));
 }
 
 TEST(FeatureProcessorTest, KeepLineWithClickThird) {
+  FeatureProcessorOptions options;
+  options.set_only_use_line_with_click(true);
+  TestingFeatureProcessor feature_processor(options);
+
   const std::string context = "Fiřst Lině\nSěcond Lině\nThiřd Lině";
   const CodepointSpan span = {24, 33};
   // clang-format off
@@ -155,12 +179,16 @@ TEST(FeatureProcessorTest, KeepLineWithClickThird) {
   // clang-format on
 
   // Keeps the first line.
-  internal::StripTokensFromOtherLines(context, span, &tokens);
+  feature_processor.StripTokensFromOtherLines(context, span, &tokens);
   EXPECT_THAT(tokens, ElementsAreArray(
                           {Token("Thiřd", 23, 28), Token("Lině", 29, 33)}));
 }
 
 TEST(FeatureProcessorTest, KeepLineWithClickSecondWithPipe) {
+  FeatureProcessorOptions options;
+  options.set_only_use_line_with_click(true);
+  TestingFeatureProcessor feature_processor(options);
+
   const std::string context = "Fiřst Lině|Sěcond Lině\nThiřd Lině";
   const CodepointSpan span = {18, 22};
   // clang-format off
@@ -173,12 +201,16 @@ TEST(FeatureProcessorTest, KeepLineWithClickSecondWithPipe) {
   // clang-format on
 
   // Keeps the first line.
-  internal::StripTokensFromOtherLines(context, span, &tokens);
+  feature_processor.StripTokensFromOtherLines(context, span, &tokens);
   EXPECT_THAT(tokens, ElementsAreArray(
                           {Token("Sěcond", 11, 17), Token("Lině", 18, 22)}));
 }
 
 TEST(FeatureProcessorTest, KeepLineWithCrosslineClick) {
+  FeatureProcessorOptions options;
+  options.set_only_use_line_with_click(true);
+  TestingFeatureProcessor feature_processor(options);
+
   const std::string context = "Fiřst Lině\nSěcond Lině\nThiřd Lině";
   const CodepointSpan span = {5, 23};
   // clang-format off
@@ -191,23 +223,12 @@ TEST(FeatureProcessorTest, KeepLineWithCrosslineClick) {
   // clang-format on
 
   // Keeps the first line.
-  internal::StripTokensFromOtherLines(context, span, &tokens);
+  feature_processor.StripTokensFromOtherLines(context, span, &tokens);
   EXPECT_THAT(tokens, ElementsAreArray(
                           {Token("Fiřst", 0, 5), Token("Lině", 6, 10),
                            Token("Sěcond", 18, 23), Token("Lině", 19, 23),
                            Token("Thiřd", 23, 28), Token("Lině", 29, 33)}));
 }
-
-class TestingFeatureProcessor : public FeatureProcessor {
- public:
-  using FeatureProcessor::FeatureProcessor;
-  using FeatureProcessor::SpanToLabel;
-  using FeatureProcessor::SupportedCodepointsRatio;
-  using FeatureProcessor::IsCodepointInRanges;
-  using FeatureProcessor::ICUTokenize;
-  using FeatureProcessor::CountIgnoredSpanBoundaryCodepoints;
-  using FeatureProcessor::supported_codepoint_ranges_;
-};
 
 TEST(FeatureProcessorTest, SpanToLabel) {
   FeatureProcessorOptions options;
@@ -780,6 +801,36 @@ TEST(FeatureProcessorTest, IgnoredSpanBoundaryCodepoints) {
   // Test stripping empty string.
   EXPECT_EQ(feature_processor.StripBoundaryCodepoints("", {0, 0}),
             std::make_pair(0, 0));
+}
+
+TEST(FeatureProcessorTest, CodepointSpanToTokenSpan) {
+  const std::vector<Token> tokens{Token("Hělló", 0, 5),
+                                  Token("fěěbař@google.com", 6, 23),
+                                  Token("heře!", 24, 29)};
+
+  // Spans matching the tokens exactly.
+  EXPECT_EQ(TokenSpan(0, 1), CodepointSpanToTokenSpan(tokens, {0, 5}));
+  EXPECT_EQ(TokenSpan(1, 2), CodepointSpanToTokenSpan(tokens, {6, 23}));
+  EXPECT_EQ(TokenSpan(2, 3), CodepointSpanToTokenSpan(tokens, {24, 29}));
+  EXPECT_EQ(TokenSpan(0, 2), CodepointSpanToTokenSpan(tokens, {0, 23}));
+  EXPECT_EQ(TokenSpan(1, 3), CodepointSpanToTokenSpan(tokens, {6, 29}));
+  EXPECT_EQ(TokenSpan(0, 3), CodepointSpanToTokenSpan(tokens, {0, 29}));
+
+  // Snapping to containing tokens has no effect.
+  EXPECT_EQ(TokenSpan(0, 1), CodepointSpanToTokenSpan(tokens, {0, 5}, true));
+  EXPECT_EQ(TokenSpan(1, 2), CodepointSpanToTokenSpan(tokens, {6, 23}, true));
+  EXPECT_EQ(TokenSpan(2, 3), CodepointSpanToTokenSpan(tokens, {24, 29}, true));
+  EXPECT_EQ(TokenSpan(0, 2), CodepointSpanToTokenSpan(tokens, {0, 23}, true));
+  EXPECT_EQ(TokenSpan(1, 3), CodepointSpanToTokenSpan(tokens, {6, 29}, true));
+  EXPECT_EQ(TokenSpan(0, 3), CodepointSpanToTokenSpan(tokens, {0, 29}, true));
+
+  // Span boundaries inside tokens.
+  EXPECT_EQ(TokenSpan(1, 2), CodepointSpanToTokenSpan(tokens, {1, 28}));
+  EXPECT_EQ(TokenSpan(0, 3), CodepointSpanToTokenSpan(tokens, {1, 28}, true));
+
+  // Tokens adjacent to the span, but not overlapping.
+  EXPECT_EQ(TokenSpan(1, 2), CodepointSpanToTokenSpan(tokens, {5, 24}));
+  EXPECT_EQ(TokenSpan(1, 2), CodepointSpanToTokenSpan(tokens, {5, 24}, true));
 }
 
 }  // namespace

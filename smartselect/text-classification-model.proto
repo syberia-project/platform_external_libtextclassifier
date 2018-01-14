@@ -46,6 +46,12 @@ message SelectionModelOptions {
   // enforcing symmetry.
   optional int32 symmetry_context_size = 4;
 
+  // If true, before the selection is returned, the unpaired brackets contained
+  // in the predicted selection are stripped from the both selection ends.
+  // The bracket codepoints are defined in the Unicode standard:
+  // http://www.unicode.org/Public/UNIDATA/BidiBrackets.txt
+  optional bool strip_unpaired_brackets = 5 [default = true];
+
   reserved 2;
 }
 
@@ -71,7 +77,7 @@ message SharingModelOptions {
   repeated RegexPattern regex_pattern = 5;
 }
 
-// Next ID: 39
+// Next ID: 41
 message FeatureProcessorOptions {
   // Number of buckets used for hashing charactergrams.
   optional int32 num_buckets = 1 [default = -1];
@@ -207,7 +213,7 @@ message FeatureProcessorOptions {
   // predicted spans.
   repeated int32 ignored_span_boundary_codepoints = 36;
 
-  reserved 7, 11, 12, 26, 27, 28, 29, 32, 35;
+  reserved 7, 11, 12, 26, 27, 28, 29, 32, 35, 39, 40;
 
   // List of allowed charactergrams. The extracted charactergrams are filtered
   // using this list, and charactergrams that are not present are interpreted as
