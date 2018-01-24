@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_JAVA_SCOPED_LOCAL_REF_H_
-#define LIBTEXTCLASSIFIER_UTIL_JAVA_SCOPED_LOCAL_REF_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_JAVA_SCOPED_LOCAL_REF_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_JAVA_SCOPED_LOCAL_REF_H_
 
 #include <jni.h>
 #include <memory>
@@ -23,7 +23,7 @@
 
 #include "util/base/logging.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // A deleter to be used with std::unique_ptr to delete JNI local references.
 class LocalRefDeleter {
@@ -60,6 +60,6 @@ template <typename T>
 using ScopedLocalRef =
     std::unique_ptr<typename std::remove_pointer<T>::type, LocalRefDeleter>;
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_JAVA_SCOPED_LOCAL_REF_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_JAVA_SCOPED_LOCAL_REF_H_
