@@ -16,10 +16,10 @@
 
 // Define macros to indicate C++ standard / platform / etc we use.
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_CONFIG_H_
-#define LIBTEXTCLASSIFIER_UTIL_BASE_CONFIG_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_CONFIG_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_CONFIG_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Define LANG_CXX11 to 1 if current compiler supports C++11.
 //
@@ -38,6 +38,6 @@ namespace libtextclassifier {
 #define LANG_CXX11 1
 #endif
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_CONFIG_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_CONFIG_H_

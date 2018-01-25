@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_GTL_STL_UTIL_H_
-#define LIBTEXTCLASSIFIER_UTIL_GTL_STL_UTIL_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_GTL_STL_UTIL_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_GTL_STL_UTIL_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Deletes all the elements in an STL container and clears the container. This
 // function is suitable for use with a vector, set, hash_set, or any other STL
@@ -50,6 +50,6 @@ void STLDeleteValues(T *container) {
   container->clear();
 }
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_GTL_STL_UTIL_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_GTL_STL_UTIL_H_

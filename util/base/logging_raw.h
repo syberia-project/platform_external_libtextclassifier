@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_RAW_H_
-#define LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_RAW_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_LOGGING_RAW_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_LOGGING_RAW_H_
 
 #include <string>
 
 #include "util/base/logging_levels.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace logging {
 
 // Low-level logging primitive.  Logs a message, with the indicated log
@@ -31,6 +31,6 @@ void LowLevelLogging(LogSeverity severity, const std::string &tag,
                      const std::string &message);
 
 }  // namespace logging
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_RAW_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_LOGGING_RAW_H_

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_STRINGS_NUMBERS_H_
-#define LIBTEXTCLASSIFIER_UTIL_STRINGS_NUMBERS_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_NUMBERS_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_NUMBERS_H_
 
 #include <string>
 
 #include "util/base/integral_types.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Parses an int32 from a C-style string.
 //
@@ -47,7 +47,6 @@ bool ParseDouble(const char *c_str, double *value);
 // int types.
 std::string IntToString(int64 input);
 
+}  // namespace libtextclassifier2
 
-}  // namespace libtextclassifier
-
-#endif  // LIBTEXTCLASSIFIER_UTIL_STRINGS_NUMBERS_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_NUMBERS_H_

@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_STRINGS_SPLIT_H_
-#define LIBTEXTCLASSIFIER_UTIL_STRINGS_SPLIT_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_SPLIT_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_SPLIT_H_
 
 #include <string>
 #include <vector>
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace strings {
 
 std::vector<std::string> Split(const std::string &text, char delim);
 
 }  // namespace strings
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_STRINGS_SPLIT_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_SPLIT_H_

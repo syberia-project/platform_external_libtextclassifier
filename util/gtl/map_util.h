@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_GTL_MAP_UTIL_H_
-#define LIBTEXTCLASSIFIER_UTIL_GTL_MAP_UTIL_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_GTL_MAP_UTIL_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_GTL_MAP_UTIL_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Returns a const reference to the value associated with the given key if it
 // exists, otherwise returns a const reference to the provided default value.
@@ -60,6 +60,6 @@ bool InsertIfNotPresent(
                             typename Collection::value_type(key, value));
 }
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_GTL_MAP_UTIL_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_GTL_MAP_UTIL_H_
