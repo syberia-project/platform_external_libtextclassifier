@@ -16,10 +16,10 @@
 
 // Various portability macros, type definitions, and inline functions.
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_PORT_H_
-#define LIBTEXTCLASSIFIER_UTIL_BASE_PORT_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_PORT_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_PORT_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 #if defined(__GNUC__) && \
     (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
@@ -40,6 +40,6 @@ namespace libtextclassifier {
 #define TC_ATTRIBUTE_NOINLINE
 #endif
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_PORT_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_PORT_H_

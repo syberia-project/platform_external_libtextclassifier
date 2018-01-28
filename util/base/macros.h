@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_MACROS_H_
-#define LIBTEXTCLASSIFIER_UTIL_BASE_MACROS_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_MACROS_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_MACROS_H_
 
 #include "util/base/config.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 #if LANG_CXX11
 #define TC_DISALLOW_COPY_AND_ASSIGN(TypeName) \
@@ -78,6 +78,6 @@ namespace libtextclassifier {
 #define TC_FALLTHROUGH_INTENDED do { } while (0)
 #endif
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_MACROS_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_MACROS_H_

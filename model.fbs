@@ -1,0 +1,145 @@
+// Generated from model.proto
+
+namespace libtextclassifier2.TokenizationCodepointRange_;
+
+enum Role : int {
+  DEFAULT_ROLE = 0,
+  SPLIT_BEFORE = 1,
+  SPLIT_AFTER = 2,
+  TOKEN_SEPARATOR = 3,
+  DISCARD_CODEPOINT = 4,
+  WHITESPACE_SEPARATOR = 7,
+}
+
+namespace libtextclassifier2.FeatureProcessorOptions_;
+
+enum CenterTokenSelectionMethod : int {
+  DEFAULT_CENTER_TOKEN_METHOD = 0,
+  CENTER_TOKEN_FROM_CLICK = 1,
+  CENTER_TOKEN_MIDDLE_OF_SELECTION = 2,
+}
+
+enum TokenizationType : int {
+  INVALID_TOKENIZATION_TYPE = 0,
+  INTERNAL_TOKENIZER = 1,
+  ICU = 2,
+  MIXED = 3,
+}
+
+namespace libtextclassifier2;
+
+table SelectionModelOptions {
+  strip_unpaired_brackets:bool;
+  symmetry_context_size:int;
+}
+
+table ClassificationModelOptions {
+  phone_min_num_digits:int = 7;
+  phone_max_num_digits:int = 15;
+}
+
+table RegexModelOptions {
+  patterns:[libtextclassifier2.RegexModelOptions_.Pattern];
+}
+
+namespace libtextclassifier2.RegexModelOptions_;
+
+table Pattern {
+  collection_name:string;
+  pattern:string;
+}
+
+namespace libtextclassifier2;
+
+table StructuredRegexModel {
+  patterns:[libtextclassifier2.StructuredRegexModel_.StructuredPattern];
+}
+
+namespace libtextclassifier2.StructuredRegexModel_;
+
+table StructuredPattern {
+  pattern:string;
+  node_names:[string];
+}
+
+namespace libtextclassifier2;
+
+table Model {
+  language:string;
+  version:int;
+  selection_feature_options:libtextclassifier2.FeatureProcessorOptions;
+  classification_feature_options:libtextclassifier2.FeatureProcessorOptions;
+  selection_model:[ubyte];
+  classification_model:[ubyte];
+  embedding_model:[ubyte];
+  regex_options:libtextclassifier2.RegexModelOptions;
+  selection_options:libtextclassifier2.SelectionModelOptions;
+  classification_options:libtextclassifier2.ClassificationModelOptions;
+  regex_model:libtextclassifier2.StructuredRegexModel;
+}
+
+table TokenizationCodepointRange {
+  start:int;
+  end:int;
+  role:libtextclassifier2.TokenizationCodepointRange_.Role;
+  script_id:int;
+}
+
+table FeatureProcessorOptions {
+  num_buckets:int = -1;
+  embedding_size:int = -1;
+  context_size:int = -1;
+  max_selection_span:int = -1;
+  chargram_orders:[int];
+  max_word_length:int = 20;
+  unicode_aware_features:bool;
+  extract_case_feature:bool;
+  extract_selection_mask_feature:bool;
+  regexp_feature:[string];
+  remap_digits:bool;
+  lowercase_tokens:bool;
+  selection_reduced_output_space:bool;
+  collections:[string];
+  default_collection:int = -1;
+  only_use_line_with_click:bool;
+  split_tokens_on_selection_boundaries:bool;
+  tokenization_codepoint_config:[libtextclassifier2.TokenizationCodepointRange];
+  center_token_selection_method:libtextclassifier2.FeatureProcessorOptions_.CenterTokenSelectionMethod;
+  snap_label_span_boundaries_to_containing_tokens:bool;
+  supported_codepoint_ranges:[libtextclassifier2.FeatureProcessorOptions_.CodepointRange];
+  internal_tokenizer_codepoint_ranges:[libtextclassifier2.FeatureProcessorOptions_.CodepointRange];
+  min_supported_codepoint_ratio:float = 0.0;
+  feature_version:int;
+  tokenization_type:libtextclassifier2.FeatureProcessorOptions_.TokenizationType;
+  icu_preserve_whitespace_tokens:bool;
+  ignored_span_boundary_codepoints:[int];
+  click_random_token_in_selection:bool;
+  alternative_collection_map:[libtextclassifier2.FeatureProcessorOptions_.CollectionMapEntry];
+  bounds_sensitive_features:libtextclassifier2.FeatureProcessorOptions_.BoundsSensitiveFeatures;
+  split_selection_candidates:bool;
+  allowed_chargrams:[string];
+  tokenize_on_script_change:bool;
+}
+
+namespace libtextclassifier2.FeatureProcessorOptions_;
+
+table CodepointRange {
+  start:int;
+  end:int;
+}
+
+table CollectionMapEntry {
+  key:string;
+  value:string;
+}
+
+table BoundsSensitiveFeatures {
+  enabled:bool;
+  num_tokens_before:int;
+  num_tokens_inside_left:int;
+  num_tokens_inside_right:int;
+  num_tokens_after:int;
+  include_inside_bag:bool;
+  include_inside_length:bool;
+}
+

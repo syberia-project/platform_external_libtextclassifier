@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_STRINGS_UTF8_H_
-#define LIBTEXTCLASSIFIER_UTIL_STRINGS_UTF8_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_UTF8_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_UTF8_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Returns the length (number of bytes) of the Unicode code point starting at
 // src, based on inspecting just that one byte.  Preconditions: src != NULL,
@@ -44,6 +44,6 @@ static inline bool IsTrailByte(char x) {
   return static_cast<signed char>(x) < -0x40;
 }
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_STRINGS_UTF8_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_UTF8_H_

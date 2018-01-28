@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_UTF8_UNICODETEXT_H_
-#define LIBTEXTCLASSIFIER_UTIL_UTF8_UNICODETEXT_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_UTF8_UNICODETEXT_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_UTF8_UNICODETEXT_H_
 
 #include <iterator>
 #include <string>
@@ -23,7 +23,7 @@
 
 #include "util/base/integral_types.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // ***************************** UnicodeText **************************
 //
@@ -150,6 +150,7 @@ class UnicodeText {
 
   // Calling this may invalidate pointers to underlying data.
   UnicodeText& AppendUTF8(const char* utf8, int len);
+  UnicodeText& AppendCodepoint(char32 ch);
   void clear();
 
   static std::string UTF8Substring(const const_iterator& first,
@@ -193,6 +194,6 @@ typedef std::pair<UnicodeText::const_iterator, UnicodeText::const_iterator>
 UnicodeText UTF8ToUnicodeText(const char* utf8_buf, int len, bool do_copy);
 UnicodeText UTF8ToUnicodeText(const std::string& str, bool do_copy);
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_UTF8_UNICODETEXT_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_UTF8_UNICODETEXT_H_

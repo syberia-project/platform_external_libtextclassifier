@@ -16,12 +16,12 @@
 
 // Basic integer type definitions.
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_INTEGRAL_TYPES_H_
-#define LIBTEXTCLASSIFIER_UTIL_BASE_INTEGRAL_TYPES_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_INTEGRAL_TYPES_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_INTEGRAL_TYPES_H_
 
 #include "util/base/config.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 typedef unsigned int uint32;
 typedef unsigned long long uint64;
@@ -56,6 +56,6 @@ static_assert(sizeof(char32) == 4, "wrong size");
 static_assert(sizeof(int64) == 8, "wrong size");
 #endif  // LANG_CXX11
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_INTEGRAL_TYPES_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_INTEGRAL_TYPES_H_

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_LEVELS_H_
-#define LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_LEVELS_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_LOGGING_LEVELS_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_LOGGING_LEVELS_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace logging {
 
 enum LogSeverity {
@@ -28,6 +28,6 @@ enum LogSeverity {
 };
 
 }  // namespace logging
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_LEVELS_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_LOGGING_LEVELS_H_

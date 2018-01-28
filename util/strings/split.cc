@@ -16,7 +16,7 @@
 
 #include "util/strings/split.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace strings {
 
 std::vector<std::string> Split(const std::string &text, char delim) {
@@ -35,4 +35,4 @@ std::vector<std::string> Split(const std::string &text, char delim) {
 }
 
 }  // namespace strings
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2

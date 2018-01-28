@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_ENDIAN_H_
-#define LIBTEXTCLASSIFIER_UTIL_BASE_ENDIAN_H_
+#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_ENDIAN_H_
+#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_ENDIAN_H_
 
 #include "util/base/integral_types.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 #if defined OS_LINUX || defined OS_CYGWIN || defined OS_ANDROID || \
     defined(__ANDROID__)
@@ -133,6 +133,6 @@ class LittleEndian {
 #endif /* ENDIAN */
 };
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
-#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_ENDIAN_H_
+#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_ENDIAN_H_

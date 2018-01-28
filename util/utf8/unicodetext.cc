@@ -22,7 +22,7 @@
 
 #include "util/strings/utf8.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // *************** Data representation **********
 // Note: the copy constructor is undefined.
@@ -106,6 +106,61 @@ UnicodeText& UnicodeText::CopyUTF8(const char* buffer, int byte_length) {
 
 UnicodeText& UnicodeText::AppendUTF8(const char* utf8, int len) {
   repr_.append(utf8, len);
+  return *this;
+}
+
+namespace {
+
+enum {
+  RuneError = 0xFFFD,  // Decoding error in UTF.
+  RuneMax = 0x10FFFF,  // Maximum rune value.
+};
+
+int runetochar(const char32 rune, char* dest) {
+  // Convert to unsigned for range check.
+  uint32 c;
+
+  // 1 char 00-7F
+  c = rune;
+  if (c <= 0x7F) {
+    dest[0] = static_cast<char>(c);
+    return 1;
+  }
+
+  // 2 char 0080-07FF
+  if (c <= 0x07FF) {
+    dest[0] = 0xC0 | static_cast<char>(c >> 1 * 6);
+    dest[1] = 0x80 | (c & 0x3F);
+    return 2;
+  }
+
+  // Range check
+  if (c > RuneMax) {
+    c = RuneError;
+  }
+
+  // 3 char 0800-FFFF
+  if (c <= 0xFFFF) {
+    dest[0] = 0xE0 | static_cast<char>(c >> 2 * 6);
+    dest[1] = 0x80 | ((c >> 1 * 6) & 0x3F);
+    dest[2] = 0x80 | (c & 0x3F);
+    return 3;
+  }
+
+  // 4 char 10000-1FFFFF
+  dest[0] = 0xF0 | static_cast<char>(c >> 3 * 6);
+  dest[1] = 0x80 | ((c >> 2 * 6) & 0x3F);
+  dest[2] = 0x80 | ((c >> 1 * 6) & 0x3F);
+  dest[3] = 0x80 | (c & 0x3F);
+  return 4;
+}
+
+}  // namespace
+
+UnicodeText& UnicodeText::AppendCodepoint(char32 ch) {
+  char str[4];
+  int char_len = runetochar(ch, str);
+  repr_.append(str, char_len);
   return *this;
 }
 
@@ -195,4 +250,4 @@ UnicodeText UTF8ToUnicodeText(const std::string& str, bool do_copy) {
   return UTF8ToUnicodeText(str.data(), str.size(), do_copy);
 }
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
