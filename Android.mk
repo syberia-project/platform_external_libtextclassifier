@@ -76,7 +76,7 @@ LOCAL_SHARED_LIBRARIES += liblog
 LOCAL_SHARED_LIBRARIES += libicuuc libicui18n
 LOCAL_SHARED_LIBRARIES += libtflite
 LOCAL_STATIC_LIBRARIES += flatbuffers
-LOCAL_REQUIRED_MODULES := textclassifier.smartselection.en.model
+LOCAL_REQUIRED_MODULES := textclassifier.en.model
 
 LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/jni.lds
 LOCAL_LDFLAGS += -Wl,-version-script=$(LOCAL_PATH)/jni.lds
@@ -117,10 +117,10 @@ include $(BUILD_NATIVE_TEST)
 # ----------------------
 
 include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.en.model
+LOCAL_MODULE        := textclassifier.en.model
 LOCAL_MODULE_CLASS  := ETC
 LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.en.model
+LOCAL_SRC_FILES     := ./models/textclassifier.en.model
 LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
 include $(BUILD_PREBUILT)
 
@@ -129,7 +129,7 @@ include $(BUILD_PREBUILT)
 # -----------------------
 
 include $(CLEAR_VARS)
-LOCAL_MODULE           := textclassifier.smartselection.bundle1
-LOCAL_REQUIRED_MODULES := textclassifier.smartselection.en.model
+LOCAL_MODULE           := textclassifier.bundle1
+LOCAL_REQUIRED_MODULES := textclassifier.en.model
 LOCAL_CFLAGS := $(MY_LIBTEXTCLASSIFIER_WARNING_CFLAGS)
 include $(BUILD_STATIC_LIBRARY)
