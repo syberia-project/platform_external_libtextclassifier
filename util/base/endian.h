@@ -40,7 +40,7 @@ namespace libtextclassifier {
 
 // The following guarantees declaration of the byte swap functions, and
 // defines __BYTE_ORDER for MSVC
-#if defined(__GLIBC__) || defined(__CYGWIN__)
+#if defined(__GLIBC__) || defined(__BIONIC__) || defined(__CYGWIN__)
 #include <byteswap.h>  // IWYU pragma: export
 // The following section defines the byte swap functions for OS X / iOS,
 // which does not ship with byteswap.h.
