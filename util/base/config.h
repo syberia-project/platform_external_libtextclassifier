@@ -16,8 +16,8 @@
 
 // Define macros to indicate C++ standard / platform / etc we use.
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_CONFIG_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_CONFIG_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_CONFIG_H_
+#define LIBTEXTCLASSIFIER_UTIL_BASE_CONFIG_H_
 
 namespace libtextclassifier2 {
 
@@ -40,4 +40,4 @@ namespace libtextclassifier2 {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_CONFIG_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_CONFIG_H_

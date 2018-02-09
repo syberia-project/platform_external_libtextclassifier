@@ -25,11 +25,9 @@ namespace libtextclassifier2 {
 namespace {
 
 // Returns true if given codepoint is contained in the given span in context.
-bool IsCodepointInSpan(const char32 codepoint, const std::string& context,
+bool IsCodepointInSpan(const char32 codepoint,
+                       const UnicodeText& context_unicode,
                        const CodepointSpan span) {
-  const UnicodeText context_unicode =
-      UTF8ToUnicodeText(context, /*do_copy=*/false);
-
   auto begin_it = context_unicode.begin();
   std::advance(begin_it, span.first);
   auto end_it = context_unicode.begin();
@@ -39,21 +37,16 @@ bool IsCodepointInSpan(const char32 codepoint, const std::string& context,
 }
 
 // Returns the first codepoint of the span.
-char32 FirstSpanCodepoint(const std::string& context,
+char32 FirstSpanCodepoint(const UnicodeText& context_unicode,
                           const CodepointSpan span) {
-  const UnicodeText context_unicode =
-      UTF8ToUnicodeText(context, /*do_copy=*/false);
-
   auto it = context_unicode.begin();
   std::advance(it, span.first);
   return *it;
 }
 
 // Returns the last codepoint of the span.
-char32 LastSpanCodepoint(const std::string& context, const CodepointSpan span) {
-  const UnicodeText context_unicode =
-      UTF8ToUnicodeText(context, /*do_copy=*/false);
-
+char32 LastSpanCodepoint(const UnicodeText& context_unicode,
+                         const CodepointSpan span) {
   auto it = context_unicode.begin();
   std::advance(it, span.second - 1);
   return *it;
@@ -61,20 +54,27 @@ char32 LastSpanCodepoint(const std::string& context, const CodepointSpan span) {
 
 }  // namespace
 
+CodepointSpan StripUnpairedBrackets(const std::string& context,
+                                    CodepointSpan span, const UniLib& unilib) {
+  const UnicodeText context_unicode =
+      UTF8ToUnicodeText(context, /*do_copy=*/false);
+  return StripUnpairedBrackets(context_unicode, span, unilib);
+}
+
 // If the first or the last codepoint of the given span is a bracket, the
 // bracket is stripped if the span does not contain its corresponding paired
 // version.
-CodepointSpan StripUnpairedBrackets(const std::string& context,
+CodepointSpan StripUnpairedBrackets(const UnicodeText& context_unicode,
                                     CodepointSpan span, const UniLib& unilib) {
-  if (context.empty()) {
+  if (context_unicode.empty()) {
     return span;
   }
 
-  const char32 begin_char = FirstSpanCodepoint(context, span);
+  const char32 begin_char = FirstSpanCodepoint(context_unicode, span);
   const char32 paired_begin_char = unilib.GetPairedBracket(begin_char);
   if (paired_begin_char != begin_char) {
     if (!unilib.IsOpeningBracket(begin_char) ||
-        !IsCodepointInSpan(paired_begin_char, context, span)) {
+        !IsCodepointInSpan(paired_begin_char, context_unicode, span)) {
       ++span.first;
     }
   }
@@ -83,11 +83,11 @@ CodepointSpan StripUnpairedBrackets(const std::string& context,
     return span;
   }
 
-  const char32 end_char = LastSpanCodepoint(context, span);
+  const char32 end_char = LastSpanCodepoint(context_unicode, span);
   const char32 paired_end_char = unilib.GetPairedBracket(end_char);
   if (paired_end_char != end_char) {
     if (!unilib.IsClosingBracket(end_char) ||
-        !IsCodepointInSpan(paired_end_char, context, span)) {
+        !IsCodepointInSpan(paired_end_char, context_unicode, span)) {
       --span.second;
     }
   }

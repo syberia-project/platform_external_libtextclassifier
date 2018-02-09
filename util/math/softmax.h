@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_MATH_SOFTMAX_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_MATH_SOFTMAX_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_MATH_SOFTMAX_H_
+#define LIBTEXTCLASSIFIER_UTIL_MATH_SOFTMAX_H_
 
 #include <vector>
 
@@ -35,4 +35,4 @@ std::vector<float> ComputeSoftmax(const float *scores, int scores_size);
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_MATH_SOFTMAX_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_MATH_SOFTMAX_H_

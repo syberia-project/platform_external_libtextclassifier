@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_HASH_HASH_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_HASH_HASH_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_HASH_HASH_H_
+#define LIBTEXTCLASSIFIER_UTIL_HASH_HASH_H_
 
 #include <string>
 
@@ -35,4 +35,4 @@ static inline uint32 Hash32WithDefaultSeed(const std::string &input) {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_HASH_HASH_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_HASH_HASH_H_

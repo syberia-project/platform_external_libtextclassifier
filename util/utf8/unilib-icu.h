@@ -17,22 +17,24 @@
 // UniLib implementation with the help of ICU. UniLib is basically a wrapper
 // around the ICU functionality.
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_UTF8_UNILIB_ICU_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_UTF8_UNILIB_ICU_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_UTF8_UNILIB_ICU_H_
+#define LIBTEXTCLASSIFIER_UTIL_UTF8_UNILIB_ICU_H_
 
 #include <memory>
-#include <string>
 
 #include "util/base/integral_types.h"
+#include "util/utf8/unicodetext.h"
 #include "unicode/brkiter.h"
 #include "unicode/errorcode.h"
 #include "unicode/regex.h"
 #include "unicode/uchar.h"
+#include "unicode/unum.h"
 
 namespace libtextclassifier2 {
 
 class UniLib {
  public:
+  bool ParseInt32(const UnicodeText& text, int* result) const;
   bool IsOpeningBracket(char32 codepoint) const;
   bool IsClosingBracket(char32 codepoint) const;
   bool IsWhitespace(char32 codepoint) const;
@@ -42,10 +44,72 @@ class UniLib {
   char32 ToLower(char32 codepoint) const;
   char32 GetPairedBracket(char32 codepoint) const;
 
+  // Forward declaration for friend.
+  class RegexPattern;
+
+  class RegexMatcher {
+   public:
+    static constexpr int kError = -1;
+    static constexpr int kNoError = 0;
+
+    // Checks whether the input text matches the pattern exactly.
+    bool Matches(int* status) const;
+
+    // Finds occurrences of the pattern in the input text.
+    // Can be called repeatedly to find all occurences. A call will update
+    // internal state, so that 'Start', 'End' and 'Group' can be called to get
+    // information about the match.
+    bool Find(int* status);
+
+    // Gets the start offset of the last match (from  'Find').
+    // Sets status to 'kError' if 'Find'
+    // was not called previously.
+    int Start(int* status) const;
+
+    // Gets the start offset of the specified group of the last match.
+    // (from  'Find').
+    // Sets status to 'kError' if an invalid group was specified or if 'Find'
+    // was not called previously.
+    int Start(int group_idx, int* status) const;
+
+    // Gets the end offset of the last match (from  'Find').
+    // Sets status to 'kError' if 'Find'
+    // was not called previously.
+    int End(int* status) const;
+
+    // Gets the end offset of the specified group of the last match.
+    // (from  'Find').
+    // Sets status to 'kError' if an invalid group was specified or if 'Find'
+    // was not called previously.
+    int End(int group_idx, int* status) const;
+
+    // Gets the text of the last match (from 'Find').
+    // Sets status to 'kError' if 'Find' was not called previously.
+    UnicodeText Group(int* status) const;
+
+    // Gets the text of the specified group of the last match (from 'Find').
+    // Sets status to 'kError' if an invalid group was specified or if 'Find'
+    // was not called previously.
+    UnicodeText Group(int group_idx, int* status) const;
+
+    // Gets the text of the specified group of the last match (from 'Find').
+    // Sets status to 'kError' if an invalid group was specified or if 'Find'
+    // was not called previously.
+    UnicodeText Group(const std::string& group_name, int* status) const;
+
+   protected:
+    friend class RegexPattern;
+    explicit RegexMatcher(icu::RegexPattern* pattern, icu::UnicodeString text);
+
+   private:
+    std::unique_ptr<icu::RegexMatcher> matcher_;
+    icu::RegexPattern* pattern_;
+    icu::UnicodeString text_;
+  };
+
   class RegexPattern {
    public:
-    // Returns true if the whole input matches with the regex.
-    bool Matches(const std::string& text);
+    std::unique_ptr<RegexMatcher> Matcher(const UnicodeText& input) const;
 
    protected:
     friend class UniLib;
@@ -64,18 +128,19 @@ class UniLib {
 
    protected:
     friend class UniLib;
-    explicit BreakIterator(const std::string& text);
+    explicit BreakIterator(const UnicodeText& text);
 
    private:
     std::unique_ptr<icu::BreakIterator> break_iterator_;
+    icu::UnicodeString text_;
   };
 
   std::unique_ptr<RegexPattern> CreateRegexPattern(
-      const std::string& regex) const;
+      const UnicodeText& regex) const;
   std::unique_ptr<BreakIterator> CreateBreakIterator(
-      const std::string& text) const;
+      const UnicodeText& text) const;
 };
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_UTF8_UNILIB_ICU_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_UTF8_UNILIB_ICU_H_

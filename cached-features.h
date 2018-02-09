@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_CACHED_FEATURES_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_CACHED_FEATURES_H_
+#ifndef LIBTEXTCLASSIFIER_CACHED_FEATURES_H_
+#define LIBTEXTCLASSIFIER_CACHED_FEATURES_H_
 
 #include <memory>
 #include <vector>
@@ -30,40 +30,52 @@ namespace libtextclassifier2 {
 // Assumes that features for each Token are independent.
 class CachedFeatures {
  public:
-  CachedFeatures(
+  static std::unique_ptr<CachedFeatures> Create(
       const TokenSpan& extraction_span,
       const std::vector<std::vector<int>>& sparse_features,
       const std::vector<std::vector<float>>& dense_features,
       const std::vector<int>& padding_sparse_features,
       const std::vector<float>& padding_dense_features,
-      const FeatureProcessorOptions_::BoundsSensitiveFeatures* config,
+      const FeatureProcessorOptions* options,
       EmbeddingExecutor* embedding_executor, int feature_vector_size);
 
-  // Gets a vector of features for the given token span.
-  std::vector<float> Get(TokenSpan selected_span) const;
+  // Appends the click context features for the given click position to
+  // 'output_features'.
+  void AppendClickContextFeaturesForClick(
+      int click_pos, std::vector<float>* output_features) const;
+
+  // Appends the bounds-sensitive features for the given token span to
+  // 'output_features'.
+  void AppendBoundsSensitiveFeaturesForSpan(
+      TokenSpan selected_span, std::vector<float>* output_features) const;
+
+  // Returns number of features that 'AppendFeaturesForSpan' appends.
+  int OutputFeaturesSize() const { return output_features_size_; }
 
  private:
+  CachedFeatures() {}
+
   // Appends token features to the output. The intended_span specifies which
   // tokens' features should be used in principle. The read_mask_span restricts
   // which tokens are actually read. For tokens outside of the read_mask_span,
   // padding tokens are used instead.
-  void AppendFeatures(const TokenSpan& intended_span,
-                      const TokenSpan& read_mask_span,
-                      std::vector<float>* output_features) const;
+  void AppendFeaturesInternal(const TokenSpan& intended_span,
+                              const TokenSpan& read_mask_span,
+                              std::vector<float>* output_features) const;
 
   // Appends features of one padding token to the output.
   void AppendPaddingFeatures(std::vector<float>* output_features) const;
 
   // Appends the features of tokens from the given span to the output. The
-  // features are summed so that the appended features have the size
+  // features are averaged so that the appended features have the size
   // corresponding to one token.
-  void AppendSummedFeatures(const TokenSpan& summing_span,
-                            std::vector<float>* output_features) const;
+  void AppendBagFeatures(const TokenSpan& bag_span,
+                         std::vector<float>* output_features) const;
 
   int NumFeaturesPerToken() const;
 
-  const TokenSpan extraction_span_;
-  const FeatureProcessorOptions_::BoundsSensitiveFeatures* config_;
+  TokenSpan extraction_span_;
+  const FeatureProcessorOptions* options_;
   int output_features_size_;
   std::vector<float> features_;
   std::vector<float> padding_features_;
@@ -71,4 +83,4 @@ class CachedFeatures {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_CACHED_FEATURES_H_
+#endif  // LIBTEXTCLASSIFIER_CACHED_FEATURES_H_

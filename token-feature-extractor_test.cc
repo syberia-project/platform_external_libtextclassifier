@@ -35,7 +35,7 @@ TEST(TokenFeatureExtractorTest, ExtractAscii) {
   options.extract_case_feature = true;
   options.unicode_aware_features = false;
   options.extract_selection_mask_feature = true;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -106,7 +106,7 @@ TEST(TokenFeatureExtractorTest, ExtractAsciiNoChargrams) {
   options.extract_case_feature = true;
   options.unicode_aware_features = false;
   options.extract_selection_mask_feature = true;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -136,7 +136,7 @@ TEST(TokenFeatureExtractorTest, ExtractUnicode) {
   options.extract_case_feature = true;
   options.unicode_aware_features = true;
   options.extract_selection_mask_feature = true;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -207,7 +207,7 @@ TEST(TokenFeatureExtractorTest, ExtractUnicodeNoChargrams) {
   options.extract_case_feature = true;
   options.unicode_aware_features = true;
   options.extract_selection_mask_feature = true;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -239,7 +239,7 @@ TEST(TokenFeatureExtractorTest, ICUCaseFeature) {
   options.extract_case_feature = true;
   options.unicode_aware_features = true;
   options.extract_selection_mask_feature = false;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -274,7 +274,7 @@ TEST(TokenFeatureExtractorTest, DigitRemapping) {
   options.chargram_orders = std::vector<int>{1, 2};
   options.remap_digits = true;
   options.unicode_aware_features = false;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -299,7 +299,7 @@ TEST(TokenFeatureExtractorTest, DigitRemappingUnicode) {
   options.chargram_orders = std::vector<int>{1, 2};
   options.remap_digits = true;
   options.unicode_aware_features = true;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -324,7 +324,7 @@ TEST(TokenFeatureExtractorTest, LowercaseAscii) {
   options.chargram_orders = std::vector<int>{1, 2};
   options.lowercase_tokens = true;
   options.unicode_aware_features = false;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -349,7 +349,7 @@ TEST(TokenFeatureExtractorTest, LowercaseUnicode) {
   options.chargram_orders = std::vector<int>{1, 2};
   options.lowercase_tokens = true;
   options.unicode_aware_features = true;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -372,7 +372,7 @@ TEST(TokenFeatureExtractorTest, RegexFeatures) {
   options.unicode_aware_features = false;
   options.regexp_features.push_back("^[a-z]+$");  // all lower case.
   options.regexp_features.push_back("^[0-9]+$");  // all digits.
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -405,7 +405,7 @@ TEST(TokenFeatureExtractorTest, ExtractTooLongWord) {
   options.extract_case_feature = true;
   options.unicode_aware_features = true;
   options.extract_selection_mask_feature = true;
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   // Test that this runs. ASAN should catch problems.
@@ -431,7 +431,7 @@ TEST(TokenFeatureExtractorTest, ExtractAsciiUnicodeMatches) {
   options.unicode_aware_features = true;
   options.extract_selection_mask_feature = true;
 
-  UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor_unicode(options, unilib);
 
   options.unicode_aware_features = false;
@@ -466,7 +466,7 @@ TEST(TokenFeatureExtractorTest, ExtractForPadToken) {
   options.unicode_aware_features = false;
   options.extract_selection_mask_feature = true;
 
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;
@@ -493,7 +493,7 @@ TEST(TokenFeatureExtractorTest, ExtractFiltered) {
   options.allowed_chargrams.insert("!");
   options.allowed_chargrams.insert("\xc4");  // UTF8 control character.
 
-  const UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   TestingTokenFeatureExtractor extractor(options, unilib);
 
   std::vector<int> sparse_features;

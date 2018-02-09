@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_LOGGING_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_LOGGING_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_H_
+#define LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_H_
 
 #include <cassert>
 #include <string>
@@ -23,22 +23,6 @@
 #include "util/base/logging_levels.h"
 #include "util/base/port.h"
 
-// TC_STRIP
-namespace libtextclassifier2 {
-// string class that can't be instantiated.  Makes sure that the code does not
-// compile when non std::string is used.
-//
-// NOTE: defined here because most files directly or transitively include this
-// file.  Asking people to include a special header just to make sure they don't
-// use the unqualified string doesn't work: as that header doesn't produce any
-// immediate benefit, one can easily forget about it.
-class string {
- public:
-  // Makes the class non-instantiable.
-  virtual ~string() = 0;
-};
-}  // namespace libtextclassifier2
-// TC_END_STRIP
 
 namespace libtextclassifier2 {
 namespace logging {
@@ -180,4 +164,4 @@ inline NullStream &operator<<(NullStream &str, const T &) {
 #define TC_VLOG(severity) TC_NULLSTREAM
 #endif
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_LOGGING_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_H_

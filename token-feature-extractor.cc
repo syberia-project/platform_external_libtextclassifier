@@ -74,8 +74,86 @@ TokenFeatureExtractor::TokenFeatureExtractor(
     : options_(options), unilib_(unilib) {
   for (const std::string& pattern : options.regexp_features) {
     regex_patterns_.push_back(std::unique_ptr<UniLib::RegexPattern>(
-        unilib_.CreateRegexPattern(pattern)));
+        unilib_.CreateRegexPattern(UTF8ToUnicodeText(
+            pattern.c_str(), pattern.size(), /*do_copy=*/false))));
   }
+}
+
+bool TokenFeatureExtractor::Extract(const Token& token, bool is_in_span,
+                                    std::vector<int>* sparse_features,
+                                    std::vector<float>* dense_features) const {
+  if (sparse_features == nullptr || dense_features == nullptr) {
+    return false;
+  }
+  *sparse_features = ExtractCharactergramFeatures(token);
+  *dense_features = ExtractDenseFeatures(token, is_in_span);
+  return true;
+}
+
+std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeatures(
+    const Token& token) const {
+  if (options_.unicode_aware_features) {
+    return ExtractCharactergramFeaturesUnicode(token);
+  } else {
+    return ExtractCharactergramFeaturesAscii(token);
+  }
+}
+
+std::vector<float> TokenFeatureExtractor::ExtractDenseFeatures(
+    const Token& token, bool is_in_span) const {
+  std::vector<float> dense_features;
+
+  if (options_.extract_case_feature) {
+    if (options_.unicode_aware_features) {
+      UnicodeText token_unicode =
+          UTF8ToUnicodeText(token.value, /*do_copy=*/false);
+      const bool is_upper = unilib_.IsUpper(*token_unicode.begin());
+      if (!token.value.empty() && is_upper) {
+        dense_features.push_back(1.0);
+      } else {
+        dense_features.push_back(-1.0);
+      }
+    } else {
+      if (!token.value.empty() && isupper(*token.value.begin())) {
+        dense_features.push_back(1.0);
+      } else {
+        dense_features.push_back(-1.0);
+      }
+    }
+  }
+
+  if (options_.extract_selection_mask_feature) {
+    if (is_in_span) {
+      dense_features.push_back(1.0);
+    } else {
+      if (options_.unicode_aware_features) {
+        dense_features.push_back(-1.0);
+      } else {
+        dense_features.push_back(0.0);
+      }
+    }
+  }
+
+  // Add regexp features.
+  if (!regex_patterns_.empty()) {
+    UnicodeText token_unicode =
+        UTF8ToUnicodeText(token.value, /*do_copy=*/false);
+    for (int i = 0; i < regex_patterns_.size(); ++i) {
+      if (!regex_patterns_[i].get()) {
+        dense_features.push_back(-1.0);
+        continue;
+      }
+      auto matcher = regex_patterns_[i]->Matcher(token_unicode);
+      int status;
+      if (matcher->Matches(&status)) {
+        dense_features.push_back(1.0);
+      } else {
+        dense_features.push_back(-1.0);
+      }
+    }
+  }
+
+  return dense_features;
 }
 
 int TokenFeatureExtractor::HashToken(StringPiece token) const {
@@ -98,15 +176,6 @@ int TokenFeatureExtractor::HashToken(StringPiece token) const {
               (options_.num_buckets - kNumExtraBuckets)) +
              kNumExtraBuckets;
     }
-  }
-}
-
-std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeatures(
-    const Token& token) const {
-  if (options_.unicode_aware_features) {
-    return ExtractCharactergramFeaturesUnicode(token);
-  } else {
-    return ExtractCharactergramFeaturesAscii(token);
   }
 }
 
@@ -235,65 +304,6 @@ std::vector<int> TokenFeatureExtractor::ExtractCharactergramFeaturesUnicode(
     }
   }
   return result;
-}
-
-bool TokenFeatureExtractor::Extract(const Token& token, bool is_in_span,
-                                    std::vector<int>* sparse_features,
-                                    std::vector<float>* dense_features) const {
-  if (sparse_features == nullptr || dense_features == nullptr) {
-    return false;
-  }
-
-  *sparse_features = ExtractCharactergramFeatures(token);
-
-  if (options_.extract_case_feature) {
-    if (options_.unicode_aware_features) {
-      UnicodeText token_unicode =
-          UTF8ToUnicodeText(token.value, /*do_copy=*/false);
-      const bool is_upper = unilib_.IsUpper(*token_unicode.begin());
-      if (!token.value.empty() && is_upper) {
-        dense_features->push_back(1.0);
-      } else {
-        dense_features->push_back(-1.0);
-      }
-    } else {
-      if (!token.value.empty() && isupper(*token.value.begin())) {
-        dense_features->push_back(1.0);
-      } else {
-        dense_features->push_back(-1.0);
-      }
-    }
-  }
-
-  if (options_.extract_selection_mask_feature) {
-    if (is_in_span) {
-      dense_features->push_back(1.0);
-    } else {
-      if (options_.unicode_aware_features) {
-        dense_features->push_back(-1.0);
-      } else {
-        dense_features->push_back(0.0);
-      }
-    }
-  }
-
-  // Add regexp features.
-  if (!regex_patterns_.empty()) {
-    for (int i = 0; i < regex_patterns_.size(); ++i) {
-      if (!regex_patterns_[i].get()) {
-        dense_features->push_back(-1.0);
-        continue;
-      }
-
-      if (regex_patterns_[i]->Matches(token.value)) {
-        dense_features->push_back(1.0);
-      } else {
-        dense_features->push_back(-1.0);
-      }
-    }
-  }
-
-  return true;
 }
 
 }  // namespace libtextclassifier2

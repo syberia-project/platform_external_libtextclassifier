@@ -22,7 +22,7 @@ namespace libtextclassifier2 {
 namespace {
 
 TEST(StripUnpairedBracketsTest, StripUnpairedBrackets) {
-  UniLib unilib;
+  CREATE_UNILIB_FOR_TESTING
   // If the brackets match, nothing gets stripped.
   EXPECT_EQ(StripUnpairedBrackets("call me (123) 456 today", {8, 17}, unilib),
             std::make_pair(8, 17));

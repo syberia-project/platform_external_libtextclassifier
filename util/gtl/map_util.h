@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_GTL_MAP_UTIL_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_GTL_MAP_UTIL_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_GTL_MAP_UTIL_H_
+#define LIBTEXTCLASSIFIER_UTIL_GTL_MAP_UTIL_H_
 
 namespace libtextclassifier2 {
 
@@ -62,4 +62,4 @@ bool InsertIfNotPresent(
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_GTL_MAP_UTIL_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_GTL_MAP_UTIL_H_
