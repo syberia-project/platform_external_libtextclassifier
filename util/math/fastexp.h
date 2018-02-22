@@ -16,8 +16,8 @@
 
 // Fast approximation for exp.
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_MATH_FASTEXP_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_MATH_FASTEXP_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_MATH_FASTEXP_H_
+#define LIBTEXTCLASSIFIER_UTIL_MATH_FASTEXP_H_
 
 #include <cassert>
 #include <cmath>
@@ -65,4 +65,4 @@ inline float VeryFastExp(float f) { return FastMathInstance.VeryFastExp(f); }
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_MATH_FASTEXP_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_MATH_FASTEXP_H_

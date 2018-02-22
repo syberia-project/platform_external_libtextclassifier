@@ -27,6 +27,16 @@ namespace libtextclassifier2 {
 // *************** Data representation **********
 // Note: the copy constructor is undefined.
 
+UnicodeText::Repr& UnicodeText::Repr::operator=(Repr&& src) {
+  if (ours_ && data_) delete[] data_;
+  data_ = src.data_;
+  size_ = src.size_;
+  capacity_ = src.capacity_;
+  ours_ = src.ours_;
+  src.ours_ = false;
+  return *this;
+}
+
 void UnicodeText::Repr::PointTo(const char* data, int size) {
   if (ours_ && data_) delete[] data_;  // If we owned the old buffer, free it.
   data_ = const_cast<char*>(data);
@@ -89,6 +99,11 @@ UnicodeText::UnicodeText() {}
 
 UnicodeText::UnicodeText(const UnicodeText& src) { Copy(src); }
 
+UnicodeText& UnicodeText::operator=(UnicodeText&& src) {
+  this->repr_ = std::move(src.repr_);
+  return *this;
+}
+
 UnicodeText& UnicodeText::Copy(const UnicodeText& src) {
   repr_.Copy(src.repr_.data_, src.repr_.size_);
   return *this;
@@ -108,6 +123,10 @@ UnicodeText& UnicodeText::AppendUTF8(const char* utf8, int len) {
   repr_.append(utf8, len);
   return *this;
 }
+
+const char* UnicodeText::data() const { return repr_.data_; }
+
+int UnicodeText::size_bytes() const { return repr_.size_; }
 
 namespace {
 
@@ -166,7 +185,22 @@ UnicodeText& UnicodeText::AppendCodepoint(char32 ch) {
 
 void UnicodeText::clear() { repr_.clear(); }
 
-int UnicodeText::size() const { return std::distance(begin(), end()); }
+int UnicodeText::size_codepoints() const {
+  return std::distance(begin(), end());
+}
+
+bool UnicodeText::empty() const { return size_bytes() == 0; }
+
+bool UnicodeText::operator==(const UnicodeText& other) const {
+  if (repr_.size_ != other.repr_.size_) {
+    return false;
+  }
+  return memcmp(repr_.data_, other.repr_.data_, repr_.size_) == 0;
+}
+
+std::string UnicodeText::ToUTF8String() const {
+  return std::string(begin(), end());
+}
 
 std::string UnicodeText::UTF8Substring(const const_iterator& first,
                                        const const_iterator& last) {
@@ -246,8 +280,13 @@ UnicodeText UTF8ToUnicodeText(const char* utf8_buf, int len, bool do_copy) {
   return t;
 }
 
+UnicodeText UTF8ToUnicodeText(const char* utf8_buf, bool do_copy) {
+  return UTF8ToUnicodeText(utf8_buf, strlen(utf8_buf), do_copy);
+}
+
 UnicodeText UTF8ToUnicodeText(const std::string& str, bool do_copy) {
   return UTF8ToUnicodeText(str.data(), str.size(), do_copy);
 }
+
 
 }  // namespace libtextclassifier2

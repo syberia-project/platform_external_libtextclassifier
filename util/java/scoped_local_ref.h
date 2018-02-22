@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_JAVA_SCOPED_LOCAL_REF_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_JAVA_SCOPED_LOCAL_REF_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_JAVA_SCOPED_LOCAL_REF_H_
+#define LIBTEXTCLASSIFIER_UTIL_JAVA_SCOPED_LOCAL_REF_H_
 
 #include <jni.h>
 #include <memory>
@@ -28,6 +28,8 @@ namespace libtextclassifier2 {
 // A deleter to be used with std::unique_ptr to delete JNI local references.
 class LocalRefDeleter {
  public:
+  LocalRefDeleter() : env_(nullptr) {}
+
   // Style guide violating implicit constructor so that the LocalRefDeleter
   // is implicitly constructed from the second argument to ScopedLocalRef.
   LocalRefDeleter(JNIEnv* env) : env_(env) {}  // NOLINT(runtime/explicit)
@@ -43,7 +45,11 @@ class LocalRefDeleter {
   }
 
   // The delete operator.
-  void operator()(jobject o) const { env_->DeleteLocalRef(o); }
+  void operator()(jobject object) const {
+    if (env_) {
+      env_->DeleteLocalRef(object);
+    }
+  }
 
  private:
   // The env_ stashed to use for deletion. Thread-local, don't share!
@@ -62,4 +68,4 @@ using ScopedLocalRef =
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_JAVA_SCOPED_LOCAL_REF_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_JAVA_SCOPED_LOCAL_REF_H_

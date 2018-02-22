@@ -111,8 +111,8 @@ void SplitTokensOnSelectionBoundaries(CodepointSpan selection,
   }
 }
 
-UniLib* MaybeCreateUnilib(UniLib* unilib,
-                          std::unique_ptr<UniLib>* owned_unilib) {
+const UniLib* MaybeCreateUnilib(const UniLib* unilib,
+                                std::unique_ptr<UniLib>* owned_unilib) {
   if (unilib) {
     return unilib;
   } else {
@@ -128,6 +128,12 @@ void FeatureProcessor::StripTokensFromOtherLines(
     std::vector<Token>* tokens) const {
   const UnicodeText context_unicode = UTF8ToUnicodeText(context,
                                                         /*do_copy=*/false);
+  StripTokensFromOtherLines(context_unicode, span, tokens);
+}
+
+void FeatureProcessor::StripTokensFromOtherLines(
+    const UnicodeText& context_unicode, CodepointSpan span,
+    std::vector<Token>* tokens) const {
   std::vector<UnicodeTextRange> lines = SplitContext(context_unicode);
 
   auto span_start = context_unicode.begin();
@@ -168,28 +174,33 @@ std::string FeatureProcessor::GetDefaultCollection() const {
   return (*options_->collections())[options_->default_collection()]->str();
 }
 
+std::vector<Token> FeatureProcessor::Tokenize(const std::string& text) const {
+  const UnicodeText text_unicode = UTF8ToUnicodeText(text, /*do_copy=*/false);
+  return Tokenize(text_unicode);
+}
+
 std::vector<Token> FeatureProcessor::Tokenize(
-    const std::string& utf8_text) const {
+    const UnicodeText& text_unicode) const {
   if (options_->tokenization_type() ==
       FeatureProcessorOptions_::TokenizationType_INTERNAL_TOKENIZER) {
-    return tokenizer_.Tokenize(utf8_text);
+    return tokenizer_.Tokenize(text_unicode);
   } else if (options_->tokenization_type() ==
                  FeatureProcessorOptions_::TokenizationType_ICU ||
              options_->tokenization_type() ==
                  FeatureProcessorOptions_::TokenizationType_MIXED) {
     std::vector<Token> result;
-    if (!ICUTokenize(utf8_text, &result)) {
+    if (!ICUTokenize(text_unicode, &result)) {
       return {};
     }
     if (options_->tokenization_type() ==
         FeatureProcessorOptions_::TokenizationType_MIXED) {
-      InternalRetokenize(utf8_text, &result);
+      InternalRetokenize(text_unicode, &result);
     }
     return result;
   } else {
     TC_LOG(ERROR) << "Unknown tokenization type specified. Using "
                      "internal.";
-    return tokenizer_.Tokenize(utf8_text);
+    return tokenizer_.Tokenize(text_unicode);
   }
 }
 
@@ -565,22 +576,21 @@ void FindSubstrings(const UnicodeText& t, const std::set<char32>& codepoints,
 
 std::vector<UnicodeTextRange> FeatureProcessor::SplitContext(
     const UnicodeText& context_unicode) const {
-  if (options_->only_use_line_with_click()) {
-    std::vector<UnicodeTextRange> lines;
-    std::set<char32> codepoints;
-    codepoints.insert('\n');
-    codepoints.insert('|');
-    FindSubstrings(context_unicode, codepoints, &lines);
-    return lines;
-  } else {
-    return {{context_unicode.begin(), context_unicode.end()}};
-  }
+  std::vector<UnicodeTextRange> lines;
+  const std::set<char32> codepoints{{'\n', '|'}};
+  FindSubstrings(context_unicode, codepoints, &lines);
+  return lines;
 }
 
 CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
     const std::string& context, CodepointSpan span) const {
   const UnicodeText context_unicode =
       UTF8ToUnicodeText(context, /*do_copy=*/false);
+  return StripBoundaryCodepoints(context_unicode, span);
+}
+
+CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
+    const UnicodeText& context_unicode, CodepointSpan span) const {
   UnicodeText::const_iterator span_begin = context_unicode.begin();
   std::advance(span_begin, span.first);
   UnicodeText::const_iterator span_end = context_unicode.begin();
@@ -683,17 +693,29 @@ void FeatureProcessor::MakeLabelMaps() {
 
 void FeatureProcessor::TokenizeAndFindClick(const std::string& context,
                                             CodepointSpan input_span,
+                                            bool only_use_line_with_click,
+                                            std::vector<Token>* tokens,
+                                            int* click_pos) const {
+  const UnicodeText context_unicode =
+      UTF8ToUnicodeText(context, /*do_copy=*/false);
+  TokenizeAndFindClick(context_unicode, input_span, only_use_line_with_click,
+                       tokens, click_pos);
+}
+
+void FeatureProcessor::TokenizeAndFindClick(const UnicodeText& context_unicode,
+                                            CodepointSpan input_span,
+                                            bool only_use_line_with_click,
                                             std::vector<Token>* tokens,
                                             int* click_pos) const {
   TC_CHECK(tokens != nullptr);
-  *tokens = Tokenize(context);
+  *tokens = Tokenize(context_unicode);
 
   if (options_->split_tokens_on_selection_boundaries()) {
     internal::SplitTokensOnSelectionBoundaries(input_span, tokens);
   }
 
-  if (options_->only_use_line_with_click()) {
-    StripTokensFromOtherLines(context, input_span, tokens);
+  if (only_use_line_with_click) {
+    StripTokensFromOtherLines(context_unicode, input_span, tokens);
   }
 
   int local_click_pos;
@@ -748,18 +770,9 @@ void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
 
 bool FeatureProcessor::ExtractFeatures(
     const std::vector<Token>& tokens, TokenSpan token_span,
+    CodepointSpan selection_span_for_feature,
     EmbeddingExecutor* embedding_executor, int feature_vector_size,
     std::unique_ptr<CachedFeatures>* cached_features) const {
-  if (options_->feature_version() < 2) {
-    TC_LOG(ERROR) << "Unsupported feature version.";
-    return false;
-  }
-  if (!options_->bounds_sensitive_features() ||
-      !options_->bounds_sensitive_features()->enabled()) {
-    TC_LOG(ERROR) << "Bounds-sensitive features not enabled.";
-    return false;
-  }
-
   if (options_->min_supported_codepoint_ratio() > 0) {
     const float supported_codepoint_ratio =
         SupportedCodepointsRatio(token_span, tokens);
@@ -775,9 +788,10 @@ bool FeatureProcessor::ExtractFeatures(
   for (int i = token_span.first; i < token_span.second; ++i) {
     const Token& token = tokens[i];
     const int features_index = i - token_span.first;
-    if (!feature_extractor_.Extract(token, false,
-                                    &(sparse_features[features_index]),
-                                    &(dense_features[features_index]))) {
+    if (!feature_extractor_.Extract(
+            token, token.IsContainedInSpan(selection_span_for_feature),
+            &(sparse_features[features_index]),
+            &(dense_features[features_index]))) {
       TC_LOG(ERROR) << "Could not extract token's features: " << token;
       return false;
     }
@@ -791,23 +805,25 @@ bool FeatureProcessor::ExtractFeatures(
     return false;
   }
 
-  cached_features->reset(new CachedFeatures(
-      token_span, sparse_features, dense_features, padding_sparse_features,
-      padding_dense_features, options_->bounds_sensitive_features(),
-      embedding_executor, feature_vector_size));
+  *cached_features =
+      CachedFeatures::Create(token_span, sparse_features, dense_features,
+                             padding_sparse_features, padding_dense_features,
+                             options_, embedding_executor, feature_vector_size);
+  if (!*cached_features) {
+    TC_LOG(ERROR) << "Cound not create cached features.";
+    return false;
+  }
 
   return true;
 }
 
-bool FeatureProcessor::ICUTokenize(const std::string& context,
+bool FeatureProcessor::ICUTokenize(const UnicodeText& context_unicode,
                                    std::vector<Token>* result) const {
   std::unique_ptr<UniLib::BreakIterator> break_iterator =
-      unilib_->CreateBreakIterator(context);
+      unilib_->CreateBreakIterator(context_unicode);
   if (!break_iterator) {
     return false;
   }
-
-  UnicodeText context_unicode = UTF8ToUnicodeText(context, /*do_copy=*/false);
   int last_break_index = 0;
   int break_index = 0;
   int last_unicode_index = 0;
@@ -845,11 +861,8 @@ bool FeatureProcessor::ICUTokenize(const std::string& context,
   return true;
 }
 
-void FeatureProcessor::InternalRetokenize(const std::string& context,
+void FeatureProcessor::InternalRetokenize(const UnicodeText& unicode_text,
                                           std::vector<Token>* tokens) const {
-  const UnicodeText unicode_text =
-      UTF8ToUnicodeText(context, /*do_copy=*/false);
-
   std::vector<Token> result;
   CodepointSpan span(-1, -1);
   for (Token& token : *tokens) {

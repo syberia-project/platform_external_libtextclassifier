@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_ENDIAN_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_ENDIAN_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_ENDIAN_H_
+#define LIBTEXTCLASSIFIER_UTIL_BASE_ENDIAN_H_
 
 #include "util/base/integral_types.h"
 
@@ -40,7 +40,7 @@ namespace libtextclassifier2 {
 
 // The following guarantees declaration of the byte swap functions, and
 // defines __BYTE_ORDER for MSVC
-#if defined(__GLIBC__) || defined(__CYGWIN__)
+#if defined(__GLIBC__) || defined(__BIONIC__) || defined(__CYGWIN__)
 #include <byteswap.h>  // IWYU pragma: export
 // The following section defines the byte swap functions for OS X / iOS,
 // which does not ship with byteswap.h.
@@ -135,4 +135,4 @@ class LittleEndian {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_ENDIAN_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_ENDIAN_H_

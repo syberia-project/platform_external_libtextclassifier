@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_UTF8_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_UTF8_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_STRINGS_UTF8_H_
+#define LIBTEXTCLASSIFIER_UTIL_STRINGS_UTF8_H_
 
 namespace libtextclassifier2 {
 
@@ -46,4 +46,4 @@ static inline bool IsTrailByte(char x) {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_STRINGS_UTF8_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_STRINGS_UTF8_H_

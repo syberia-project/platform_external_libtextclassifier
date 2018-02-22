@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_STRIP_UNPAIRED_BRACKETS_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_STRIP_UNPAIRED_BRACKETS_H_
+#ifndef LIBTEXTCLASSIFIER_STRIP_UNPAIRED_BRACKETS_H_
+#define LIBTEXTCLASSIFIER_STRIP_UNPAIRED_BRACKETS_H_
 
 #include <string>
 
@@ -28,6 +28,11 @@ namespace libtextclassifier2 {
 // version.
 CodepointSpan StripUnpairedBrackets(const std::string& context,
                                     CodepointSpan span, const UniLib& unilib);
+
+// Same as above but takes UnicodeText instance directly.
+CodepointSpan StripUnpairedBrackets(const UnicodeText& context_unicode,
+                                    CodepointSpan span, const UniLib& unilib);
+
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_STRIP_UNPAIRED_BRACKETS_H_
+#endif  // LIBTEXTCLASSIFIER_STRIP_UNPAIRED_BRACKETS_H_

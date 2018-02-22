@@ -20,7 +20,6 @@
 
 #include "util/base/logging.h"
 #include "util/strings/utf8.h"
-#include "util/utf8/unicodetext.h"
 
 namespace libtextclassifier2 {
 
@@ -73,15 +72,18 @@ void Tokenizer::GetScriptAndRole(char32 codepoint,
   }
 }
 
-std::vector<Token> Tokenizer::Tokenize(const std::string& utf8_text) const {
-  UnicodeText context_unicode = UTF8ToUnicodeText(utf8_text, /*do_copy=*/false);
+std::vector<Token> Tokenizer::Tokenize(const std::string& text) const {
+  UnicodeText text_unicode = UTF8ToUnicodeText(text, /*do_copy=*/false);
+  return Tokenize(text_unicode);
+}
 
+std::vector<Token> Tokenizer::Tokenize(const UnicodeText& text_unicode) const {
   std::vector<Token> result;
   Token new_token("", 0, 0);
   int codepoint_index = 0;
 
   int last_script = kInvalidScript;
-  for (auto it = context_unicode.begin(); it != context_unicode.end();
+  for (auto it = text_unicode.begin(); it != text_unicode.end();
        ++it, ++codepoint_index) {
     TokenizationCodepointRange_::Role role;
     int script;

@@ -16,6 +16,7 @@
 
 #include "model-executor.h"
 
+#include "quantization.h"
 #include "util/base/logging.h"
 
 namespace libtextclassifier2 {
@@ -40,7 +41,10 @@ bool FromModelSpec(const tflite::Model* model_spec,
 }  // namespace internal
 
 TFLiteEmbeddingExecutor::TFLiteEmbeddingExecutor(
-    const tflite::Model* model_spec) {
+    const tflite::Model* model_spec, const int embedding_size,
+    const int quantization_bits)
+    : quantization_bits_(quantization_bits),
+      output_embedding_size_(embedding_size) {
   internal::FromModelSpec(model_spec, &model_, &interpreter_);
   if (!interpreter_) {
     return;
@@ -58,13 +62,21 @@ TFLiteEmbeddingExecutor::TFLiteEmbeddingExecutor(
       scales_->dims->data[1] != 1) {
     return;
   }
-  embedding_size_ = embeddings_->dims->data[1];
+  bytes_per_embedding_ = embeddings_->dims->data[1];
+  if (!CheckQuantizationParams(bytes_per_embedding_, quantization_bits_,
+                               output_embedding_size_)) {
+    TC_LOG(ERROR) << "Mismatch in quantization parameters.";
+    return;
+  }
+
   initialized_ = true;
 }
 
 bool TFLiteEmbeddingExecutor::AddEmbedding(
     const TensorView<int>& sparse_features, float* dest, int dest_size) {
-  if (!initialized_ || dest_size != embedding_size_) {
+  if (!initialized_ || dest_size != output_embedding_size_) {
+    TC_LOG(ERROR) << "Mismatching dest_size and output_embedding_size: "
+                  << dest_size << " " << output_embedding_size_;
     return false;
   }
   const int num_sparse_features = sparse_features.size();
@@ -73,15 +85,11 @@ bool TFLiteEmbeddingExecutor::AddEmbedding(
     if (bucket_id >= num_buckets_) {
       return false;
     }
-    const float multiplier = scales_->data.f[bucket_id];
-    for (int k = 0; k < embedding_size_; ++k) {
-      // Dequantize and add the embedding.
-      dest[k] +=
-          1.0 / num_sparse_features *
-          (static_cast<int>(
-               embeddings_->data.uint8[bucket_id * embedding_size_ + k]) -
-           kQuantBias) *
-          multiplier;
+
+    if (!DequantizeAdd(scales_->data.f, embeddings_->data.uint8,
+                       bytes_per_embedding_, num_sparse_features,
+                       quantization_bits_, bucket_id, dest, dest_size)) {
+      return false;
     }
   }
   return true;

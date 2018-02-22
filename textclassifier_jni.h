@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TEXTCLASSIFIER_JNI_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TEXTCLASSIFIER_JNI_H_
+#ifndef LIBTEXTCLASSIFIER_TEXTCLASSIFIER_JNI_H_
+#define LIBTEXTCLASSIFIER_TEXTCLASSIFIER_JNI_H_
 
 #include <jni.h>
 #include <string>
@@ -32,7 +32,7 @@
 #endif
 
 #ifndef TC_CLASS_NAME
-#define TC_CLASS_NAME SmartSelection
+#define TC_CLASS_NAME TextClassifierImplNative
 #endif
 #define TC_CLASS_NAME_STR ADD_QUOTES(TC_CLASS_NAME)
 
@@ -40,10 +40,13 @@
 #define TC_PACKAGE_PATH "android/view/textclassifier/"
 #endif
 
+#define JNI_METHOD_NAME_INTERNAL(package_name, class_name, method_name) \
+  Java_##package_name##_##class_name##_##method_name
+
 #define JNI_METHOD_PRIMITIVE(return_type, package_name, class_name, \
                              method_name)                           \
-  JNIEXPORT return_type JNICALL                                     \
-      Java_##package_name##_##class_name##_##method_name
+  JNIEXPORT return_type JNICALL JNI_METHOD_NAME_INTERNAL(           \
+      package_name, class_name, method_name)
 
 // The indirection is needed to correctly expand the TC_PACKAGE_NAME macro.
 // See the explanation near ADD_QUOTES macro.
@@ -52,6 +55,12 @@
 
 #define JNI_METHOD(return_type, class_name, method_name) \
   JNI_METHOD2(return_type, TC_PACKAGE_NAME, class_name, method_name)
+
+#define JNI_METHOD_NAME2(package_name, class_name, method_name) \
+  JNI_METHOD_NAME_INTERNAL(package_name, class_name, method_name)
+
+#define JNI_METHOD_NAME(class_name, method_name) \
+  JNI_METHOD_NAME2(TC_PACKAGE_NAME, class_name, method_name)
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,21 +76,25 @@ JNI_METHOD(jlong, TC_CLASS_NAME, nativeNewFromPath)
 JNI_METHOD(jlong, TC_CLASS_NAME, nativeNewFromAssetFileDescriptor)
 (JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size);
 
-JNI_METHOD(jintArray, TC_CLASS_NAME, nativeSuggest)
+JNI_METHOD(jintArray, TC_CLASS_NAME, nativeSuggestSelection)
 (JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
- jint selection_end);
+ jint selection_end, jobject options);
 
 JNI_METHOD(jobjectArray, TC_CLASS_NAME, nativeClassifyText)
 (JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
- jint selection_end);
+ jint selection_end, jobject options);
 
 JNI_METHOD(jobjectArray, TC_CLASS_NAME, nativeAnnotate)
-(JNIEnv* env, jobject thiz, jlong ptr, jstring context);
+(JNIEnv* env, jobject thiz, jlong ptr, jstring context, jobject options);
 
 JNI_METHOD(void, TC_CLASS_NAME, nativeClose)
 (JNIEnv* env, jobject thiz, jlong ptr);
 
+// DEPRECATED. Use nativeGetLocales instead.
 JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLanguage)
+(JNIEnv* env, jobject clazz, jint fd);
+
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLocales)
 (JNIEnv* env, jobject clazz, jint fd);
 
 JNI_METHOD(jint, TC_CLASS_NAME, nativeGetVersion)
@@ -106,4 +119,4 @@ libtextclassifier2::CodepointSpan ConvertIndicesUTF8ToBMP(
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TEXTCLASSIFIER_JNI_H_
+#endif  // LIBTEXTCLASSIFIER_TEXTCLASSIFIER_JNI_H_

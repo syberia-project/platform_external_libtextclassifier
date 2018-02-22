@@ -16,8 +16,8 @@
 
 // Various portability macros, type definitions, and inline functions.
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_PORT_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_PORT_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_PORT_H_
+#define LIBTEXTCLASSIFIER_UTIL_BASE_PORT_H_
 
 namespace libtextclassifier2 {
 
@@ -42,4 +42,4 @@ namespace libtextclassifier2 {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_PORT_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_PORT_H_

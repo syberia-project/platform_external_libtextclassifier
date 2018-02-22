@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TENSOR_VIEW_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TENSOR_VIEW_H_
+#ifndef LIBTEXTCLASSIFIER_TENSOR_VIEW_H_
+#define LIBTEXTCLASSIFIER_TENSOR_VIEW_H_
 
 #include <algorithm>
 #include <vector>
@@ -69,4 +69,4 @@ class TensorView {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TENSOR_VIEW_H_
+#endif  // LIBTEXTCLASSIFIER_TENSOR_VIEW_H_

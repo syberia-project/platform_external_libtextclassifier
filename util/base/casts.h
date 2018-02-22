@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_CASTS_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_CASTS_H_
+#ifndef LIBTEXTCLASSIFIER_UTIL_BASE_CASTS_H_
+#define LIBTEXTCLASSIFIER_UTIL_BASE_CASTS_H_
 
 #include <string.h>  // for memcpy
 
@@ -89,4 +89,4 @@ inline Dest bit_cast(const Source &source) {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_UTIL_BASE_CASTS_H_
+#endif  // LIBTEXTCLASSIFIER_UTIL_BASE_CASTS_H_

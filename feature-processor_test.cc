@@ -147,11 +147,13 @@ TEST(FeatureProcessorTest, SplitTokensOnSelectionBoundariesCrossToken) {
 }
 
 TEST(FeatureProcessorTest, KeepLineWithClickFirst) {
+  CREATE_UNILIB_FOR_TESTING
   FeatureProcessorOptionsT options;
   options.only_use_line_with_click = true;
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
 
   const std::string context = "Fiřst Lině\nSěcond Lině\nThiřd Lině";
   const CodepointSpan span = {0, 5};
@@ -171,11 +173,13 @@ TEST(FeatureProcessorTest, KeepLineWithClickFirst) {
 }
 
 TEST(FeatureProcessorTest, KeepLineWithClickSecond) {
+  CREATE_UNILIB_FOR_TESTING
   FeatureProcessorOptionsT options;
   options.only_use_line_with_click = true;
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
 
   const std::string context = "Fiřst Lině\nSěcond Lině\nThiřd Lině";
   const CodepointSpan span = {18, 22};
@@ -195,11 +199,13 @@ TEST(FeatureProcessorTest, KeepLineWithClickSecond) {
 }
 
 TEST(FeatureProcessorTest, KeepLineWithClickThird) {
+  CREATE_UNILIB_FOR_TESTING
   FeatureProcessorOptionsT options;
   options.only_use_line_with_click = true;
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
 
   const std::string context = "Fiřst Lině\nSěcond Lině\nThiřd Lině";
   const CodepointSpan span = {24, 33};
@@ -219,11 +225,13 @@ TEST(FeatureProcessorTest, KeepLineWithClickThird) {
 }
 
 TEST(FeatureProcessorTest, KeepLineWithClickSecondWithPipe) {
+  CREATE_UNILIB_FOR_TESTING
   FeatureProcessorOptionsT options;
   options.only_use_line_with_click = true;
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
 
   const std::string context = "Fiřst Lině|Sěcond Lině\nThiřd Lině";
   const CodepointSpan span = {18, 22};
@@ -243,11 +251,13 @@ TEST(FeatureProcessorTest, KeepLineWithClickSecondWithPipe) {
 }
 
 TEST(FeatureProcessorTest, KeepLineWithCrosslineClick) {
+  CREATE_UNILIB_FOR_TESTING
   FeatureProcessorOptionsT options;
   options.only_use_line_with_click = true;
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
 
   const std::string context = "Fiřst Lině\nSěcond Lině\nThiřd Lině";
   const CodepointSpan span = {5, 23};
@@ -269,6 +279,7 @@ TEST(FeatureProcessorTest, KeepLineWithCrosslineClick) {
 }
 
 TEST(FeatureProcessorTest, SpanToLabel) {
+  CREATE_UNILIB_FOR_TESTING
   FeatureProcessorOptionsT options;
   options.context_size = 1;
   options.max_selection_span = 1;
@@ -283,7 +294,8 @@ TEST(FeatureProcessorTest, SpanToLabel) {
 
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
   std::vector<Token> tokens = feature_processor.Tokenize("one, two, three");
   ASSERT_EQ(3, tokens.size());
   int label;
@@ -301,7 +313,8 @@ TEST(FeatureProcessorTest, SpanToLabel) {
   flatbuffers::DetachedBuffer options2_fb =
       PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor2(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options2_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options2_fb.data()),
+      &unilib);
   int label2;
   ASSERT_TRUE(feature_processor2.SpanToLabel({5, 8}, tokens, &label2));
   EXPECT_EQ(label, label2);
@@ -322,7 +335,8 @@ TEST(FeatureProcessorTest, SpanToLabel) {
   flatbuffers::DetachedBuffer options3_fb =
       PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor3(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options3_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options3_fb.data()),
+      &unilib);
   tokens = feature_processor3.Tokenize("zero, one, two, three, four");
   ASSERT_TRUE(feature_processor3.SpanToLabel({6, 15}, tokens, &label2));
   EXPECT_NE(kInvalidLabel, label2);
@@ -340,6 +354,7 @@ TEST(FeatureProcessorTest, SpanToLabel) {
 }
 
 TEST(FeatureProcessorTest, SpanToLabelIgnoresPunctuation) {
+  CREATE_UNILIB_FOR_TESTING
   FeatureProcessorOptionsT options;
   options.context_size = 1;
   options.max_selection_span = 1;
@@ -354,7 +369,8 @@ TEST(FeatureProcessorTest, SpanToLabelIgnoresPunctuation) {
 
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
   std::vector<Token> tokens = feature_processor.Tokenize("one, two, three");
   ASSERT_EQ(3, tokens.size());
   int label;
@@ -372,7 +388,8 @@ TEST(FeatureProcessorTest, SpanToLabelIgnoresPunctuation) {
   flatbuffers::DetachedBuffer options2_fb =
       PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor2(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options2_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options2_fb.data()),
+      &unilib);
   int label2;
   ASSERT_TRUE(feature_processor2.SpanToLabel({5, 8}, tokens, &label2));
   EXPECT_EQ(label, label2);
@@ -393,7 +410,8 @@ TEST(FeatureProcessorTest, SpanToLabelIgnoresPunctuation) {
   flatbuffers::DetachedBuffer options3_fb =
       PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor3(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options3_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options3_fb.data()),
+      &unilib);
   tokens = feature_processor3.Tokenize("zero, one, two, three, four");
   ASSERT_TRUE(feature_processor3.SpanToLabel({6, 15}, tokens, &label2));
   EXPECT_NE(kInvalidLabel, label2);
@@ -524,8 +542,10 @@ TEST(FeatureProcessorTest, SupportedCodepointsRatio) {
   }
 
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
+  CREATE_UNILIB_FOR_TESTING
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
   EXPECT_THAT(feature_processor.SupportedCodepointsRatio(
                   {0, 3}, feature_processor.Tokenize("aaa bbb ccc")),
               FloatEq(1.0));
@@ -565,28 +585,73 @@ TEST(FeatureProcessorTest, SupportedCodepointsRatio) {
   flatbuffers::DetachedBuffer options2_fb =
       PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor2(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options2_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options2_fb.data()),
+      &unilib);
   EXPECT_TRUE(feature_processor2.ExtractFeatures(
-      tokens, {0, 3}, &embedding_executor,
+      tokens, /*token_span=*/{0, 3},
+      /*selection_span_for_feature=*/{kInvalidIndex, kInvalidIndex},
+      &embedding_executor,
       /*feature_vector_size=*/4, &cached_features));
 
   options.min_supported_codepoint_ratio = 0.2;
   flatbuffers::DetachedBuffer options3_fb =
       PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor3(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options3_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options3_fb.data()),
+      &unilib);
   EXPECT_TRUE(feature_processor3.ExtractFeatures(
-      tokens, {0, 3}, &embedding_executor,
+      tokens, /*token_span=*/{0, 3},
+      /*selection_span_for_feature=*/{kInvalidIndex, kInvalidIndex},
+      &embedding_executor,
       /*feature_vector_size=*/4, &cached_features));
 
   options.min_supported_codepoint_ratio = 0.5;
   flatbuffers::DetachedBuffer options4_fb =
       PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor4(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options4_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options4_fb.data()),
+      &unilib);
   EXPECT_FALSE(feature_processor4.ExtractFeatures(
-      tokens, {0, 3}, &embedding_executor,
+      tokens, /*token_span=*/{0, 3},
+      /*selection_span_for_feature=*/{kInvalidIndex, kInvalidIndex},
+      &embedding_executor,
       /*feature_vector_size=*/4, &cached_features));
+}
+
+TEST(FeatureProcessorTest, InSpanFeature) {
+  FeatureProcessorOptionsT options;
+  options.context_size = 2;
+  options.max_selection_span = 2;
+  options.snap_label_span_boundaries_to_containing_tokens = false;
+  options.feature_version = 2;
+  options.embedding_size = 4;
+  options.extract_selection_mask_feature = true;
+
+  flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
+  CREATE_UNILIB_FOR_TESTING
+  TestingFeatureProcessor feature_processor(
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
+
+  std::unique_ptr<CachedFeatures> cached_features;
+
+  FakeEmbeddingExecutor embedding_executor;
+
+  const std::vector<Token> tokens = {Token("aaa", 0, 3), Token("bbb", 4, 7),
+                                     Token("ccc", 8, 11), Token("ddd", 12, 15)};
+
+  EXPECT_TRUE(feature_processor.ExtractFeatures(
+      tokens, /*token_span=*/{0, 4},
+      /*selection_span_for_feature=*/{4, 11}, &embedding_executor,
+      /*feature_vector_size=*/5, &cached_features));
+  std::vector<float> features;
+  cached_features->AppendClickContextFeaturesForClick(1, &features);
+  ASSERT_EQ(features.size(), 25);
+  EXPECT_THAT(features[4], FloatEq(0.0));
+  EXPECT_THAT(features[9], FloatEq(0.0));
+  EXPECT_THAT(features[14], FloatEq(1.0));
+  EXPECT_THAT(features[19], FloatEq(1.0));
+  EXPECT_THAT(features[24], FloatEq(0.0));
 }
 
 TEST(FeatureProcessorTest, StripUnusedTokensWithNoRelativeClick) {
@@ -702,6 +767,7 @@ TEST(FeatureProcessorTest, StripUnusedTokensWithRelativeClick) {
 }
 
 TEST(FeatureProcessorTest, InternalTokenizeOnScriptChange) {
+  CREATE_UNILIB_FOR_TESTING
   FeatureProcessorOptionsT options;
   options.tokenization_codepoint_config.emplace_back(
       new TokenizationCodepointRangeT());
@@ -716,7 +782,8 @@ TEST(FeatureProcessorTest, InternalTokenizeOnScriptChange) {
 
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
 
   EXPECT_EQ(feature_processor.Tokenize("앨라배마123웹사이트"),
             std::vector<Token>({Token("앨라배마123웹사이트", 0, 11)}));
@@ -725,7 +792,8 @@ TEST(FeatureProcessorTest, InternalTokenizeOnScriptChange) {
   flatbuffers::DetachedBuffer options_fb2 =
       PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor2(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb2.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb2.data()),
+      &unilib);
 
   EXPECT_EQ(feature_processor2.Tokenize("앨라배마123웹사이트"),
             std::vector<Token>({Token("앨라배마", 0, 4), Token("123", 4, 7),
@@ -839,6 +907,7 @@ TEST(FeatureProcessorTest, MixedTokenize) {
 #endif
 
 TEST(FeatureProcessorTest, IgnoredSpanBoundaryCodepoints) {
+  CREATE_UNILIB_FOR_TESTING
   FeatureProcessorOptionsT options;
   options.ignored_span_boundary_codepoints.push_back('.');
   options.ignored_span_boundary_codepoints.push_back(',');
@@ -847,7 +916,8 @@ TEST(FeatureProcessorTest, IgnoredSpanBoundaryCodepoints) {
 
   flatbuffers::DetachedBuffer options_fb = PackFeatureProcessorOptions(options);
   TestingFeatureProcessor feature_processor(
-      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()));
+      flatbuffers::GetRoot<FeatureProcessorOptions>(options_fb.data()),
+      &unilib);
 
   const std::string text1_utf8 = "ěščř";
   const UnicodeText text1 = UTF8ToUnicodeText(text1_utf8, /*do_copy=*/false);

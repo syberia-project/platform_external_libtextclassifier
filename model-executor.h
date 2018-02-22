@@ -16,8 +16,8 @@
 
 // Contains classes that can execute different models/parts of a model.
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_MODEL_EXECUTOR_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_MODEL_EXECUTOR_H_
+#ifndef LIBTEXTCLASSIFIER_MODEL_EXECUTOR_H_
+#define LIBTEXTCLASSIFIER_MODEL_EXECUTOR_H_
 
 #include <memory>
 
@@ -81,17 +81,19 @@ class EmbeddingExecutor {
 // NOTE: This class is not thread-safe.
 class TFLiteEmbeddingExecutor : public EmbeddingExecutor {
  public:
-  explicit TFLiteEmbeddingExecutor(const tflite::Model* model_spec);
+  explicit TFLiteEmbeddingExecutor(const tflite::Model* model_spec,
+                                   int embedding_size, int quantization_bits);
   bool AddEmbedding(const TensorView<int>& sparse_features, float* dest,
                     int dest_size) override;
 
   bool IsReady() override { return initialized_; }
 
  protected:
-  static const int kQuantBias = 128;
+  int quantization_bits_;
   bool initialized_ = false;
   int num_buckets_ = -1;
-  int embedding_size_ = -1;
+  int bytes_per_embedding_ = -1;
+  int output_embedding_size_ = -1;
   const TfLiteTensor* scales_ = nullptr;
   const TfLiteTensor* embeddings_ = nullptr;
 
@@ -101,4 +103,4 @@ class TFLiteEmbeddingExecutor : public EmbeddingExecutor {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_MODEL_EXECUTOR_H_
+#endif  // LIBTEXTCLASSIFIER_MODEL_EXECUTOR_H_

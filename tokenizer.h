@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TOKENIZER_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TOKENIZER_H_
+#ifndef LIBTEXTCLASSIFIER_TOKENIZER_H_
+#define LIBTEXTCLASSIFIER_TOKENIZER_H_
 
 #include <string>
 #include <vector>
@@ -23,6 +23,7 @@
 #include "model_generated.h"
 #include "types.h"
 #include "util/base/integral_types.h"
+#include "util/utf8/unicodetext.h"
 
 namespace libtextclassifier2 {
 
@@ -38,7 +39,10 @@ class Tokenizer {
       bool split_on_script_change);
 
   // Tokenizes the input string using the selected tokenization method.
-  std::vector<Token> Tokenize(const std::string& utf8_text) const;
+  std::vector<Token> Tokenize(const std::string& text) const;
+
+  // Same as above but takes UnicodeText.
+  std::vector<Token> Tokenize(const UnicodeText& text_unicode) const;
 
  protected:
   // Finds the tokenization codepoint range config for given codepoint.
@@ -63,4 +67,4 @@ class Tokenizer {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TOKENIZER_H_
+#endif  // LIBTEXTCLASSIFIER_TOKENIZER_H_

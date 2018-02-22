@@ -16,8 +16,8 @@
 
 // Feature processing for FFModel (feed-forward SmartSelection model).
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_FEATURE_PROCESSOR_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_FEATURE_PROCESSOR_H_
+#ifndef LIBTEXTCLASSIFIER_FEATURE_PROCESSOR_H_
+#define LIBTEXTCLASSIFIER_FEATURE_PROCESSOR_H_
 
 #include <map>
 #include <memory>
@@ -66,8 +66,8 @@ void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
 
 // If unilib is not nullptr, just returns unilib. Otherwise, if unilib is
 // nullptr, will create UniLib, assign ownership to owned_unilib, and return it.
-UniLib* MaybeCreateUnilib(UniLib* unilib,
-                          std::unique_ptr<UniLib>* owned_unilib);
+const UniLib* MaybeCreateUnilib(const UniLib* unilib,
+                                std::unique_ptr<UniLib>* owned_unilib);
 
 }  // namespace internal
 
@@ -89,7 +89,7 @@ class FeatureProcessor {
   // If unilib is nullptr, will create and own an instance of a UniLib,
   // otherwise will use what's passed in.
   explicit FeatureProcessor(const FeatureProcessorOptions* options,
-                            UniLib* unilib = nullptr)
+                            const UniLib* unilib = nullptr)
       : owned_unilib_(nullptr),
         unilib_(internal::MaybeCreateUnilib(unilib, &owned_unilib_)),
         feature_extractor_(internal::BuildTokenFeatureExtractorOptions(options),
@@ -117,7 +117,10 @@ class FeatureProcessor {
   }
 
   // Tokenizes the input string using the selected tokenization method.
-  std::vector<Token> Tokenize(const std::string& utf8_text) const;
+  std::vector<Token> Tokenize(const std::string& text) const;
+
+  // Same as above but takes UnicodeText.
+  std::vector<Token> Tokenize(const UnicodeText& text_unicode) const;
 
   // Converts a label into a token span.
   bool LabelToTokenSpan(int label, TokenSpan* token_span) const;
@@ -139,11 +142,19 @@ class FeatureProcessor {
   // Tokenizes the context and input span, and finds the click position.
   void TokenizeAndFindClick(const std::string& context,
                             CodepointSpan input_span,
+                            bool only_use_line_with_click,
+                            std::vector<Token>* tokens, int* click_pos) const;
+
+  // Same as above but takes UnicodeText.
+  void TokenizeAndFindClick(const UnicodeText& context_unicode,
+                            CodepointSpan input_span,
+                            bool only_use_line_with_click,
                             std::vector<Token>* tokens, int* click_pos) const;
 
   // Extracts features as a CachedFeatures object that can be used for repeated
   // inference over token spans in the given context.
   bool ExtractFeatures(const std::vector<Token>& tokens, TokenSpan token_span,
+                       CodepointSpan selection_span_for_feature,
                        EmbeddingExecutor* embedding_executor,
                        int feature_vector_size,
                        std::unique_ptr<CachedFeatures>* cached_features) const;
@@ -161,7 +172,7 @@ class FeatureProcessor {
 
   int EmbeddingSize() const { return options_->embedding_size(); }
 
-  // Splits context to several segments according to configuration.
+  // Splits context to several segments.
   std::vector<UnicodeTextRange> SplitContext(
       const UnicodeText& context_unicode) const;
 
@@ -169,6 +180,10 @@ class FeatureProcessor {
   // start and end indices. If the span comprises entirely of boundary
   // codepoints, the first index of span is returned for both indices.
   CodepointSpan StripBoundaryCodepoints(const std::string& context,
+                                        CodepointSpan span) const;
+
+  // Same as above but takes UnicodeText.
+  CodepointSpan StripBoundaryCodepoints(const UnicodeText& context_unicode,
                                         CodepointSpan span) const;
 
  protected:
@@ -241,12 +256,12 @@ class FeatureProcessor {
                       const std::vector<Token>& tokens) const;
 
   // Tokenizes the input text using ICU tokenizer.
-  bool ICUTokenize(const std::string& context,
+  bool ICUTokenize(const UnicodeText& context_unicode,
                    std::vector<Token>* result) const;
 
   // Takes the result of ICU tokenization and retokenizes stretches of tokens
   // made of a specific subset of characters using the internal tokenizer.
-  void InternalRetokenize(const std::string& context,
+  void InternalRetokenize(const UnicodeText& unicode_text,
                           std::vector<Token>* tokens) const;
 
   // Tokenizes a substring of the unicode string, appending the resulting tokens
@@ -260,9 +275,14 @@ class FeatureProcessor {
   void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
                                  std::vector<Token>* tokens) const;
 
+  // Same as above but takes UnicodeText.
+  void StripTokensFromOtherLines(const UnicodeText& context_unicode,
+                                 CodepointSpan span,
+                                 std::vector<Token>* tokens) const;
+
  private:
   std::unique_ptr<UniLib> owned_unilib_;
-  UniLib* unilib_;
+  const UniLib* unilib_;
 
  protected:
   const TokenFeatureExtractor feature_extractor_;
@@ -296,4 +316,4 @@ class FeatureProcessor {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_FEATURE_PROCESSOR_H_
+#endif  // LIBTEXTCLASSIFIER_FEATURE_PROCESSOR_H_

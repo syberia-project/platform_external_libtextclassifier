@@ -19,51 +19,35 @@
 #include "textclassifier_jni.h"
 
 #include <jni.h>
+#include <type_traits>
 #include <vector>
 
 #include "text-classifier.h"
+#include "util/base/integral_types.h"
 #include "util/java/scoped_local_ref.h"
+#include "util/java/string_utils.h"
 #include "util/memory/mmap.h"
+#include "util/utf8/unilib.h"
 
 using libtextclassifier2::AnnotatedSpan;
+using libtextclassifier2::AnnotationOptions;
+using libtextclassifier2::ClassificationOptions;
+using libtextclassifier2::ClassificationResult;
+using libtextclassifier2::CodepointSpan;
+using libtextclassifier2::JStringToUtf8String;
 using libtextclassifier2::Model;
+using libtextclassifier2::ScopedLocalRef;
+using libtextclassifier2::SelectionOptions;
 using libtextclassifier2::TextClassifier;
+#ifdef LIBTEXTCLASSIFIER_UNILIB_JAVAICU
+using libtextclassifier2::UniLib;
+#endif
+
+namespace libtextclassifier2 {
+
+using libtextclassifier2::CodepointSpan;
 
 namespace {
-
-bool JStringToUtf8String(JNIEnv* env, const jstring& jstr,
-                         std::string* result) {
-  if (jstr == nullptr) {
-    *result = std::string();
-    return false;
-  }
-
-  jclass string_class = env->FindClass("java/lang/String");
-  if (!string_class) {
-    TC_LOG(ERROR) << "Can't find String class";
-    return false;
-  }
-
-  jmethodID get_bytes_id =
-      env->GetMethodID(string_class, "getBytes", "(Ljava/lang/String;)[B");
-
-  jstring encoding = env->NewStringUTF("UTF-8");
-  jbyteArray array = reinterpret_cast<jbyteArray>(
-      env->CallObjectMethod(jstr, get_bytes_id, encoding));
-
-  jbyte* const array_bytes = env->GetByteArrayElements(array, JNI_FALSE);
-  int length = env->GetArrayLength(array);
-
-  *result = std::string(reinterpret_cast<char*>(array_bytes), length);
-
-  // Release the array.
-  env->ReleaseByteArrayElements(array, array_bytes, JNI_ABORT);
-  env->DeleteLocalRef(array);
-  env->DeleteLocalRef(string_class);
-  env->DeleteLocalRef(encoding);
-
-  return true;
-}
 
 std::string ToStlString(JNIEnv* env, const jstring& str) {
   std::string result;
@@ -71,41 +55,137 @@ std::string ToStlString(JNIEnv* env, const jstring& str) {
   return result;
 }
 
-jobjectArray ScoredStringsToJObjectArray(
-    JNIEnv* env, const std::string& result_class_name,
-    const std::vector<std::pair<std::string, float>>& classification_result) {
-  jclass result_class = env->FindClass(result_class_name.c_str());
+jobjectArray ClassificationResultsToJObjectArray(
+    JNIEnv* env,
+    const std::vector<ClassificationResult>& classification_result) {
+  const ScopedLocalRef<jclass> result_class(
+      env->FindClass(TC_PACKAGE_PATH TC_CLASS_NAME_STR "$ClassificationResult"),
+      env);
   if (!result_class) {
-    TC_LOG(ERROR) << "Couldn't find result class: " << result_class_name;
+    TC_LOG(ERROR) << "Couldn't find ClassificationResult class.";
+    return nullptr;
+  }
+  const ScopedLocalRef<jclass> datetime_parse_class(
+      env->FindClass(TC_PACKAGE_PATH TC_CLASS_NAME_STR "$DatetimeResult"), env);
+  if (!datetime_parse_class) {
+    TC_LOG(ERROR) << "Couldn't find DatetimeResult class.";
     return nullptr;
   }
 
-  jmethodID result_class_constructor =
-      env->GetMethodID(result_class, "<init>", "(Ljava/lang/String;F)V");
+  const jmethodID result_class_constructor =
+      env->GetMethodID(result_class.get(), "<init>",
+                       "(Ljava/lang/String;FL" TC_PACKAGE_PATH TC_CLASS_NAME_STR
+                       "$DatetimeResult;)V");
+  const jmethodID datetime_parse_class_constructor =
+      env->GetMethodID(datetime_parse_class.get(), "<init>", "(JI)V");
 
-  jobjectArray results =
-      env->NewObjectArray(classification_result.size(), result_class, nullptr);
-
+  const jobjectArray results = env->NewObjectArray(classification_result.size(),
+                                                   result_class.get(), nullptr);
   for (int i = 0; i < classification_result.size(); i++) {
     jstring row_string =
-        env->NewStringUTF(classification_result[i].first.c_str());
+        env->NewStringUTF(classification_result[i].collection.c_str());
+    jobject row_datetime_parse = nullptr;
+    if (classification_result[i].datetime_parse_result.IsSet()) {
+      row_datetime_parse = env->NewObject(
+          datetime_parse_class.get(), datetime_parse_class_constructor,
+          classification_result[i].datetime_parse_result.time_ms_utc,
+          classification_result[i].datetime_parse_result.granularity);
+    }
     jobject result =
-        env->NewObject(result_class, result_class_constructor, row_string,
-                       static_cast<jfloat>(classification_result[i].second));
+        env->NewObject(result_class.get(), result_class_constructor, row_string,
+                       static_cast<jfloat>(classification_result[i].score),
+                       row_datetime_parse);
     env->SetObjectArrayElement(results, i, result);
     env->DeleteLocalRef(result);
   }
-  env->DeleteLocalRef(result_class);
   return results;
 }
 
-}  // namespace
+template <typename T, typename F>
+std::pair<bool, T> CallJniMethod0(JNIEnv* env, jobject object,
+                                  jclass class_object, F function,
+                                  const std::string& method_name,
+                                  const std::string& return_java_type) {
+  const jmethodID method = env->GetMethodID(class_object, method_name.c_str(),
+                                            ("()" + return_java_type).c_str());
+  if (!method) {
+    return std::make_pair(false, T());
+  }
+  return std::make_pair(true, (env->*function)(object, method));
+}
 
-namespace libtextclassifier2 {
+SelectionOptions FromJavaSelectionOptions(JNIEnv* env, jobject joptions) {
+  if (!joptions) {
+    return {};
+  }
 
-using libtextclassifier2::CodepointSpan;
+  const ScopedLocalRef<jclass> options_class(
+      env->FindClass(TC_PACKAGE_PATH TC_CLASS_NAME_STR "$SelectionOptions"),
+      env);
+  const std::pair<bool, jobject> status_or_locales = CallJniMethod0<jobject>(
+      env, joptions, options_class.get(), &JNIEnv::CallObjectMethod,
+      "getLocales", "Ljava/lang/String;");
+  if (!status_or_locales.first) {
+    return {};
+  }
 
-namespace {
+  SelectionOptions options;
+  options.locales =
+      ToStlString(env, reinterpret_cast<jstring>(status_or_locales.second));
+
+  return options;
+}
+
+template <typename T>
+T FromJavaOptionsInternal(JNIEnv* env, jobject joptions,
+                          const std::string& class_name) {
+  if (!joptions) {
+    return {};
+  }
+
+  const ScopedLocalRef<jclass> options_class(env->FindClass(class_name.c_str()),
+                                             env);
+  if (!options_class) {
+    return {};
+  }
+
+  const std::pair<bool, jobject> status_or_locales = CallJniMethod0<jobject>(
+      env, joptions, options_class.get(), &JNIEnv::CallObjectMethod,
+      "getLocale", "Ljava/lang/String;");
+  const std::pair<bool, jobject> status_or_reference_timezone =
+      CallJniMethod0<jobject>(env, joptions, options_class.get(),
+                              &JNIEnv::CallObjectMethod, "getReferenceTimezone",
+                              "Ljava/lang/String;");
+  const std::pair<bool, int64> status_or_reference_time_ms_utc =
+      CallJniMethod0<int64>(env, joptions, options_class.get(),
+                            &JNIEnv::CallLongMethod, "getReferenceTimeMsUtc",
+                            "J");
+
+  if (!status_or_locales.first || !status_or_reference_timezone.first ||
+      !status_or_reference_time_ms_utc.first) {
+    return {};
+  }
+
+  T options;
+  options.locales =
+      ToStlString(env, reinterpret_cast<jstring>(status_or_locales.second));
+  options.reference_timezone = ToStlString(
+      env, reinterpret_cast<jstring>(status_or_reference_timezone.second));
+  options.reference_time_ms_utc = status_or_reference_time_ms_utc.second;
+  return options;
+}
+
+ClassificationOptions FromJavaClassificationOptions(JNIEnv* env,
+                                                    jobject joptions) {
+  return FromJavaOptionsInternal<ClassificationOptions>(
+      env, joptions,
+      TC_PACKAGE_PATH TC_CLASS_NAME_STR "$ClassificationOptions");
+}
+
+AnnotationOptions FromJavaAnnotationOptions(JNIEnv* env, jobject joptions) {
+  return FromJavaOptionsInternal<AnnotationOptions>(
+      env, joptions, TC_PACKAGE_PATH TC_CLASS_NAME_STR "$AnnotationOptions");
+}
 
 CodepointSpan ConvertIndicesBMPUTF8(const std::string& utf8_str,
                                     CodepointSpan orig_indices,
@@ -166,21 +246,34 @@ CodepointSpan ConvertIndicesUTF8ToBMP(const std::string& utf8_str,
 
 }  // namespace libtextclassifier2
 
-using libtextclassifier2::CodepointSpan;
+using libtextclassifier2::ClassificationResultsToJObjectArray;
 using libtextclassifier2::ConvertIndicesBMPToUTF8;
 using libtextclassifier2::ConvertIndicesUTF8ToBMP;
-using libtextclassifier2::ScopedLocalRef;
+using libtextclassifier2::FromJavaAnnotationOptions;
+using libtextclassifier2::FromJavaClassificationOptions;
+using libtextclassifier2::FromJavaSelectionOptions;
+using libtextclassifier2::ToStlString;
 
 JNI_METHOD(jlong, TC_CLASS_NAME, nativeNew)
 (JNIEnv* env, jobject thiz, jint fd) {
+#ifdef LIBTEXTCLASSIFIER_UNILIB_JAVAICU
+  return reinterpret_cast<jlong>(
+      TextClassifier::FromFileDescriptor(fd).release(), new UniLib(env));
+#else
   return reinterpret_cast<jlong>(
       TextClassifier::FromFileDescriptor(fd).release());
+#endif
 }
 
 JNI_METHOD(jlong, TC_CLASS_NAME, nativeNewFromPath)
 (JNIEnv* env, jobject thiz, jstring path) {
   const std::string path_str = ToStlString(env, path);
+#ifdef LIBTEXTCLASSIFIER_UNILIB_JAVAICU
+  return reinterpret_cast<jlong>(
+      TextClassifier::FromPath(path_str, new UniLib(env)).release());
+#else
   return reinterpret_cast<jlong>(TextClassifier::FromPath(path_str).release());
+#endif
 }
 
 JNI_METHOD(jlong, TC_CLASS_NAME, nativeNewFromAssetFileDescriptor)
@@ -215,13 +308,19 @@ JNI_METHOD(jlong, TC_CLASS_NAME, nativeNewFromAssetFileDescriptor)
   jobject bundle_jfd = env->CallObjectMethod(afd, afd_class_getFileDescriptor);
   jint bundle_cfd = env->GetIntField(bundle_jfd, fd_class_descriptor);
 
+#ifdef LIBTEXTCLASSIFIER_UNILIB_JAVAICU
+  return reinterpret_cast<jlong>(TextClassifier::FromFileDescriptor(
+                                     bundle_cfd, offset, size, new UniLib(env))
+                                     .release());
+#else
   return reinterpret_cast<jlong>(
       TextClassifier::FromFileDescriptor(bundle_cfd, offset, size).release());
+#endif
 }
 
-JNI_METHOD(jintArray, TC_CLASS_NAME, nativeSuggest)
+JNI_METHOD(jintArray, TC_CLASS_NAME, nativeSuggestSelection)
 (JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
- jint selection_end) {
+ jint selection_end, jobject options) {
   if (!ptr) {
     return nullptr;
   }
@@ -231,8 +330,8 @@ JNI_METHOD(jintArray, TC_CLASS_NAME, nativeSuggest)
   const std::string context_utf8 = ToStlString(env, context);
   CodepointSpan input_indices =
       ConvertIndicesBMPToUTF8(context_utf8, {selection_begin, selection_end});
-  CodepointSpan selection =
-      model->SuggestSelection(context_utf8, input_indices);
+  CodepointSpan selection = model->SuggestSelection(
+      context_utf8, input_indices, FromJavaSelectionOptions(env, options));
   selection = ConvertIndicesUTF8ToBMP(context_utf8, selection);
 
   jintArray result = env->NewIntArray(2);
@@ -243,28 +342,31 @@ JNI_METHOD(jintArray, TC_CLASS_NAME, nativeSuggest)
 
 JNI_METHOD(jobjectArray, TC_CLASS_NAME, nativeClassifyText)
 (JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
- jint selection_end) {
+ jint selection_end, jobject options) {
   if (!ptr) {
     return nullptr;
   }
   TextClassifier* ff_model = reinterpret_cast<TextClassifier*>(ptr);
-  const std::vector<std::pair<std::string, float>> classification_result =
-      ff_model->ClassifyText(ToStlString(env, context),
-                             {selection_begin, selection_end});
 
-  return ScoredStringsToJObjectArray(
-      env, TC_PACKAGE_PATH TC_CLASS_NAME_STR "$ClassificationResult",
-      classification_result);
+  const std::string context_utf8 = ToStlString(env, context);
+  const CodepointSpan input_indices =
+      ConvertIndicesBMPToUTF8(context_utf8, {selection_begin, selection_end});
+  const std::vector<ClassificationResult> classification_result =
+      ff_model->ClassifyText(context_utf8, input_indices,
+                             FromJavaClassificationOptions(env, options));
+
+  return ClassificationResultsToJObjectArray(env, classification_result);
 }
 
 JNI_METHOD(jobjectArray, TC_CLASS_NAME, nativeAnnotate)
-(JNIEnv* env, jobject thiz, jlong ptr, jstring context) {
+(JNIEnv* env, jobject thiz, jlong ptr, jstring context, jobject options) {
   if (!ptr) {
     return nullptr;
   }
   TextClassifier* model = reinterpret_cast<TextClassifier*>(ptr);
   std::string context_utf8 = ToStlString(env, context);
-  std::vector<AnnotatedSpan> annotations = model->Annotate(context_utf8);
+  std::vector<AnnotatedSpan> annotations =
+      model->Annotate(context_utf8, FromJavaAnnotationOptions(env, options));
 
   jclass result_class =
       env->FindClass(TC_PACKAGE_PATH TC_CLASS_NAME_STR "$AnnotatedSpan");
@@ -287,9 +389,9 @@ JNI_METHOD(jobjectArray, TC_CLASS_NAME, nativeAnnotate)
     jobject result = env->NewObject(
         result_class, result_class_constructor,
         static_cast<jint>(span_bmp.first), static_cast<jint>(span_bmp.second),
-        ScoredStringsToJObjectArray(
-            env, TC_PACKAGE_PATH TC_CLASS_NAME_STR "$ClassificationResult",
-            annotations[i].classification));
+        ClassificationResultsToJObjectArray(env,
+
+                                            annotations[i].classification));
     env->SetObjectArrayElement(results, i, result);
     env->DeleteLocalRef(result);
   }
@@ -305,6 +407,12 @@ JNI_METHOD(void, TC_CLASS_NAME, nativeClose)
 
 JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLanguage)
 (JNIEnv* env, jobject clazz, jint fd) {
+  TC_LOG(WARNING) << "Using deprecated getLanguage().";
+  return JNI_METHOD_NAME(TC_CLASS_NAME, nativeGetLocales)(env, clazz, fd);
+}
+
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLocales)
+(JNIEnv* env, jobject clazz, jint fd) {
   std::unique_ptr<libtextclassifier2::ScopedMmap> mmap(
       new libtextclassifier2::ScopedMmap(fd));
   if (!mmap->handle().ok()) {
@@ -312,10 +420,10 @@ JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLanguage)
   }
   const Model* model = libtextclassifier2::ViewModel(
       mmap->handle().start(), mmap->handle().num_bytes());
-  if (!model || !model->language()) {
+  if (!model || !model->locales()) {
     return env->NewStringUTF("");
   }
-  return env->NewStringUTF(model->language()->c_str());
+  return env->NewStringUTF(model->locales()->c_str());
 }
 
 JNI_METHOD(jint, TC_CLASS_NAME, nativeGetVersion)

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TOKEN_FEATURE_EXTRACTOR_H_
-#define KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TOKEN_FEATURE_EXTRACTOR_H_
+#ifndef LIBTEXTCLASSIFIER_TOKEN_FEATURE_EXTRACTOR_H_
+#define LIBTEXTCLASSIFIER_TOKEN_FEATURE_EXTRACTOR_H_
 
 #include <memory>
 #include <unordered_set>
@@ -68,16 +68,21 @@ class TokenFeatureExtractor {
   TokenFeatureExtractor(const TokenFeatureExtractorOptions& options,
                         const UniLib& unilib);
 
-  // Extracts features from a token.
-  //  - is_in_span is a bool indicator whether the token is a part of the
-  //      selection span (true) or not (false).
-  //  - sparse_features are indices into a sparse feature vector of size
-  //    options.num_buckets which are set to 1.0 (others are implicitly 0.0).
-  //  - dense_features are values of a dense feature vector of size 0-2
-  //    (depending on the options) for the token
+  // Extracts both the sparse (charactergram) and the dense features from a
+  // token. is_in_span is a bool indicator whether the token is a part of the
+  // selection span (true) or not (false).
+  // Fails and returns false if either of the output pointers in a nullptr.
   bool Extract(const Token& token, bool is_in_span,
                std::vector<int>* sparse_features,
                std::vector<float>* dense_features) const;
+
+  // Extracts the sparse (charactergram) features from the token.
+  std::vector<int> ExtractCharactergramFeatures(const Token& token) const;
+
+  // Extracts the dense features from the token. is_in_span is a bool indicator
+  // whether the token is a part of the selection span (true) or not (false).
+  std::vector<float> ExtractDenseFeatures(const Token& token,
+                                          bool is_in_span) const;
 
   int DenseFeaturesCount() const {
     int feature_count =
@@ -89,9 +94,6 @@ class TokenFeatureExtractor {
  protected:
   // Hashes given token to given number of buckets.
   int HashToken(StringPiece token) const;
-
-  // Extracts the charactergram features from the token.
-  std::vector<int> ExtractCharactergramFeatures(const Token& token) const;
 
   // Extracts the charactergram features from the token in a non-unicode-aware
   // way.
@@ -109,4 +111,4 @@ class TokenFeatureExtractor {
 
 }  // namespace libtextclassifier2
 
-#endif  // KNOWLEDGE_CEREBRA_SENSE_TEXT_CLASSIFIER_LIB2_TOKEN_FEATURE_EXTRACTOR_H_
+#endif  // LIBTEXTCLASSIFIER_TOKEN_FEATURE_EXTRACTOR_H_
