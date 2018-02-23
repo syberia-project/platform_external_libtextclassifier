@@ -591,6 +591,10 @@ CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
 
 CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
     const UnicodeText& context_unicode, CodepointSpan span) const {
+  if (context_unicode.empty() || !ValidNonEmptySpan(span)) {
+    return span;
+  }
+
   UnicodeText::const_iterator span_begin = context_unicode.begin();
   std::advance(span_begin, span.first);
   UnicodeText::const_iterator span_end = context_unicode.begin();

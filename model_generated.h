@@ -1147,6 +1147,7 @@ struct ModelT : public flatbuffers::NativeTable {
   std::unique_ptr<ClassificationModelOptionsT> classification_options;
   std::unique_ptr<DatetimeModelT> datetime_model;
   std::unique_ptr<ModelTriggeringOptionsT> triggering_options;
+  std::string name;
   ModelT()
       : version(0) {
   }
@@ -1166,7 +1167,8 @@ struct Model FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_SELECTION_OPTIONS = 20,
     VT_CLASSIFICATION_OPTIONS = 22,
     VT_DATETIME_MODEL = 24,
-    VT_TRIGGERING_OPTIONS = 26
+    VT_TRIGGERING_OPTIONS = 26,
+    VT_NAME = 28
   };
   const flatbuffers::String *locales() const {
     return GetPointer<const flatbuffers::String *>(VT_LOCALES);
@@ -1204,6 +1206,9 @@ struct Model FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const ModelTriggeringOptions *triggering_options() const {
     return GetPointer<const ModelTriggeringOptions *>(VT_TRIGGERING_OPTIONS);
   }
+  const flatbuffers::String *name() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_LOCALES) &&
@@ -1229,6 +1234,8 @@ struct Model FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(datetime_model()) &&
            VerifyOffset(verifier, VT_TRIGGERING_OPTIONS) &&
            verifier.VerifyTable(triggering_options()) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.Verify(name()) &&
            verifier.EndTable();
   }
   ModelT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -1275,6 +1282,9 @@ struct ModelBuilder {
   void add_triggering_options(flatbuffers::Offset<ModelTriggeringOptions> triggering_options) {
     fbb_.AddOffset(Model::VT_TRIGGERING_OPTIONS, triggering_options);
   }
+  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+    fbb_.AddOffset(Model::VT_NAME, name);
+  }
   explicit ModelBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1300,8 +1310,10 @@ inline flatbuffers::Offset<Model> CreateModel(
     flatbuffers::Offset<SelectionModelOptions> selection_options = 0,
     flatbuffers::Offset<ClassificationModelOptions> classification_options = 0,
     flatbuffers::Offset<DatetimeModel> datetime_model = 0,
-    flatbuffers::Offset<ModelTriggeringOptions> triggering_options = 0) {
+    flatbuffers::Offset<ModelTriggeringOptions> triggering_options = 0,
+    flatbuffers::Offset<flatbuffers::String> name = 0) {
   ModelBuilder builder_(_fbb);
+  builder_.add_name(name);
   builder_.add_triggering_options(triggering_options);
   builder_.add_datetime_model(datetime_model);
   builder_.add_classification_options(classification_options);
@@ -1330,7 +1342,8 @@ inline flatbuffers::Offset<Model> CreateModelDirect(
     flatbuffers::Offset<SelectionModelOptions> selection_options = 0,
     flatbuffers::Offset<ClassificationModelOptions> classification_options = 0,
     flatbuffers::Offset<DatetimeModel> datetime_model = 0,
-    flatbuffers::Offset<ModelTriggeringOptions> triggering_options = 0) {
+    flatbuffers::Offset<ModelTriggeringOptions> triggering_options = 0,
+    const char *name = nullptr) {
   return libtextclassifier2::CreateModel(
       _fbb,
       locales ? _fbb.CreateString(locales) : 0,
@@ -1344,7 +1357,8 @@ inline flatbuffers::Offset<Model> CreateModelDirect(
       selection_options,
       classification_options,
       datetime_model,
-      triggering_options);
+      triggering_options,
+      name ? _fbb.CreateString(name) : 0);
 }
 
 flatbuffers::Offset<Model> CreateModel(flatbuffers::FlatBufferBuilder &_fbb, const ModelT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -2480,6 +2494,7 @@ inline void Model::UnPackTo(ModelT *_o, const flatbuffers::resolver_function_t *
   { auto _e = classification_options(); if (_e) _o->classification_options = std::unique_ptr<ClassificationModelOptionsT>(_e->UnPack(_resolver)); };
   { auto _e = datetime_model(); if (_e) _o->datetime_model = std::unique_ptr<DatetimeModelT>(_e->UnPack(_resolver)); };
   { auto _e = triggering_options(); if (_e) _o->triggering_options = std::unique_ptr<ModelTriggeringOptionsT>(_e->UnPack(_resolver)); };
+  { auto _e = name(); if (_e) _o->name = _e->str(); };
 }
 
 inline flatbuffers::Offset<Model> Model::Pack(flatbuffers::FlatBufferBuilder &_fbb, const ModelT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -2502,6 +2517,7 @@ inline flatbuffers::Offset<Model> CreateModel(flatbuffers::FlatBufferBuilder &_f
   auto _classification_options = _o->classification_options ? CreateClassificationModelOptions(_fbb, _o->classification_options.get(), _rehasher) : 0;
   auto _datetime_model = _o->datetime_model ? CreateDatetimeModel(_fbb, _o->datetime_model.get(), _rehasher) : 0;
   auto _triggering_options = _o->triggering_options ? CreateModelTriggeringOptions(_fbb, _o->triggering_options.get(), _rehasher) : 0;
+  auto _name = _o->name.empty() ? 0 : _fbb.CreateString(_o->name);
   return libtextclassifier2::CreateModel(
       _fbb,
       _locales,
@@ -2515,7 +2531,8 @@ inline flatbuffers::Offset<Model> CreateModel(flatbuffers::FlatBufferBuilder &_f
       _selection_options,
       _classification_options,
       _datetime_model,
-      _triggering_options);
+      _triggering_options,
+      _name);
 }
 
 inline TokenizationCodepointRangeT *TokenizationCodepointRange::UnPack(const flatbuffers::resolver_function_t *_resolver) const {

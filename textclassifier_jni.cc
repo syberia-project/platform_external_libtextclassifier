@@ -244,6 +244,74 @@ CodepointSpan ConvertIndicesUTF8ToBMP(const std::string& utf8_str,
   return ConvertIndicesBMPUTF8(utf8_str, utf8_indices, /*from_utf8=*/true);
 }
 
+jint GetFdFromAssetFileDescriptor(JNIEnv* env, jobject afd) {
+  // Get system-level file descriptor from AssetFileDescriptor.
+  ScopedLocalRef<jclass> afd_class(
+      env->FindClass("android/content/res/AssetFileDescriptor"), env);
+  if (afd_class == nullptr) {
+    TC_LOG(ERROR) << "Couldn't find AssetFileDescriptor.";
+    return reinterpret_cast<jlong>(nullptr);
+  }
+  jmethodID afd_class_getFileDescriptor = env->GetMethodID(
+      afd_class.get(), "getFileDescriptor", "()Ljava/io/FileDescriptor;");
+  if (afd_class_getFileDescriptor == nullptr) {
+    TC_LOG(ERROR) << "Couldn't find getFileDescriptor.";
+    return reinterpret_cast<jlong>(nullptr);
+  }
+
+  ScopedLocalRef<jclass> fd_class(env->FindClass("java/io/FileDescriptor"),
+                                  env);
+  if (fd_class == nullptr) {
+    TC_LOG(ERROR) << "Couldn't find FileDescriptor.";
+    return reinterpret_cast<jlong>(nullptr);
+  }
+  jfieldID fd_class_descriptor =
+      env->GetFieldID(fd_class.get(), "descriptor", "I");
+  if (fd_class_descriptor == nullptr) {
+    TC_LOG(ERROR) << "Couldn't find descriptor.";
+    return reinterpret_cast<jlong>(nullptr);
+  }
+
+  jobject bundle_jfd = env->CallObjectMethod(afd, afd_class_getFileDescriptor);
+  return env->GetIntField(bundle_jfd, fd_class_descriptor);
+}
+
+jstring GetLocalesFromMmap(JNIEnv* env, libtextclassifier2::ScopedMmap* mmap) {
+  if (!mmap->handle().ok()) {
+    return env->NewStringUTF("");
+  }
+  const Model* model = libtextclassifier2::ViewModel(
+      mmap->handle().start(), mmap->handle().num_bytes());
+  if (!model || !model->locales()) {
+    return env->NewStringUTF("");
+  }
+  return env->NewStringUTF(model->locales()->c_str());
+}
+
+jint GetVersionFromMmap(JNIEnv* env, libtextclassifier2::ScopedMmap* mmap) {
+  if (!mmap->handle().ok()) {
+    return 0;
+  }
+  const Model* model = libtextclassifier2::ViewModel(
+      mmap->handle().start(), mmap->handle().num_bytes());
+  if (!model) {
+    return 0;
+  }
+  return model->version();
+}
+
+jstring GetNameFromMmap(JNIEnv* env, libtextclassifier2::ScopedMmap* mmap) {
+  if (!mmap->handle().ok()) {
+    return env->NewStringUTF("");
+  }
+  const Model* model = libtextclassifier2::ViewModel(
+      mmap->handle().start(), mmap->handle().num_bytes());
+  if (!model || !model->name()) {
+    return env->NewStringUTF("");
+  }
+  return env->NewStringUTF(model->name()->c_str());
+}
+
 }  // namespace libtextclassifier2
 
 using libtextclassifier2::ClassificationResultsToJObjectArray;
@@ -278,43 +346,14 @@ JNI_METHOD(jlong, TC_CLASS_NAME, nativeNewFromPath)
 
 JNI_METHOD(jlong, TC_CLASS_NAME, nativeNewFromAssetFileDescriptor)
 (JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size) {
-  // Get system-level file descriptor from AssetFileDescriptor.
-  ScopedLocalRef<jclass> afd_class(
-      env->FindClass("android/content/res/AssetFileDescriptor"), env);
-  if (afd_class == nullptr) {
-    TC_LOG(ERROR) << "Couldn't find AssetFileDescriptor.";
-    return reinterpret_cast<jlong>(nullptr);
-  }
-  jmethodID afd_class_getFileDescriptor = env->GetMethodID(
-      afd_class.get(), "getFileDescriptor", "()Ljava/io/FileDescriptor;");
-  if (afd_class_getFileDescriptor == nullptr) {
-    TC_LOG(ERROR) << "Couldn't find getFileDescriptor.";
-    return reinterpret_cast<jlong>(nullptr);
-  }
-
-  ScopedLocalRef<jclass> fd_class(env->FindClass("java/io/FileDescriptor"),
-                                  env);
-  if (fd_class == nullptr) {
-    TC_LOG(ERROR) << "Couldn't find FileDescriptor.";
-    return reinterpret_cast<jlong>(nullptr);
-  }
-  jfieldID fd_class_descriptor =
-      env->GetFieldID(fd_class.get(), "descriptor", "I");
-  if (fd_class_descriptor == nullptr) {
-    TC_LOG(ERROR) << "Couldn't find descriptor.";
-    return reinterpret_cast<jlong>(nullptr);
-  }
-
-  jobject bundle_jfd = env->CallObjectMethod(afd, afd_class_getFileDescriptor);
-  jint bundle_cfd = env->GetIntField(bundle_jfd, fd_class_descriptor);
-
+  const jint fd = libtextclassifier2::GetFdFromAssetFileDescriptor(env, afd);
 #ifdef LIBTEXTCLASSIFIER_UNILIB_JAVAICU
-  return reinterpret_cast<jlong>(TextClassifier::FromFileDescriptor(
-                                     bundle_cfd, offset, size, new UniLib(env))
-                                     .release());
+  return reinterpret_cast<jlong>(
+      TextClassifier::FromFileDescriptor(fd, offset, size, new UniLib(env))
+          .release());
 #else
   return reinterpret_cast<jlong>(
-      TextClassifier::FromFileDescriptor(bundle_cfd, offset, size).release());
+      TextClassifier::FromFileDescriptor(fd, offset, size).release());
 #endif
 }
 
@@ -413,30 +452,45 @@ JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLanguage)
 
 JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLocales)
 (JNIEnv* env, jobject clazz, jint fd) {
-  std::unique_ptr<libtextclassifier2::ScopedMmap> mmap(
+  const std::unique_ptr<libtextclassifier2::ScopedMmap> mmap(
       new libtextclassifier2::ScopedMmap(fd));
-  if (!mmap->handle().ok()) {
-    return env->NewStringUTF("");
-  }
-  const Model* model = libtextclassifier2::ViewModel(
-      mmap->handle().start(), mmap->handle().num_bytes());
-  if (!model || !model->locales()) {
-    return env->NewStringUTF("");
-  }
-  return env->NewStringUTF(model->locales()->c_str());
+  return GetLocalesFromMmap(env, mmap.get());
+}
+
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLocalesFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size) {
+  const jint fd = libtextclassifier2::GetFdFromAssetFileDescriptor(env, afd);
+  const std::unique_ptr<libtextclassifier2::ScopedMmap> mmap(
+      new libtextclassifier2::ScopedMmap(fd, offset, size));
+  return GetLocalesFromMmap(env, mmap.get());
 }
 
 JNI_METHOD(jint, TC_CLASS_NAME, nativeGetVersion)
 (JNIEnv* env, jobject clazz, jint fd) {
-  std::unique_ptr<libtextclassifier2::ScopedMmap> mmap(
+  const std::unique_ptr<libtextclassifier2::ScopedMmap> mmap(
       new libtextclassifier2::ScopedMmap(fd));
-  if (!mmap->handle().ok()) {
-    return 0;
-  }
-  const Model* model = libtextclassifier2::ViewModel(
-      mmap->handle().start(), mmap->handle().num_bytes());
-  if (!model) {
-    return 0;
-  }
-  return model->version();
+  return GetVersionFromMmap(env, mmap.get());
+}
+
+JNI_METHOD(jint, TC_CLASS_NAME, nativeGetVersionFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size) {
+  const jint fd = libtextclassifier2::GetFdFromAssetFileDescriptor(env, afd);
+  const std::unique_ptr<libtextclassifier2::ScopedMmap> mmap(
+      new libtextclassifier2::ScopedMmap(fd, offset, size));
+  return GetVersionFromMmap(env, mmap.get());
+}
+
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetName)
+(JNIEnv* env, jobject clazz, jint fd) {
+  const std::unique_ptr<libtextclassifier2::ScopedMmap> mmap(
+      new libtextclassifier2::ScopedMmap(fd));
+  return GetNameFromMmap(env, mmap.get());
+}
+
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetNameFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size) {
+  const jint fd = libtextclassifier2::GetFdFromAssetFileDescriptor(env, afd);
+  const std::unique_ptr<libtextclassifier2::ScopedMmap> mmap(
+      new libtextclassifier2::ScopedMmap(fd, offset, size));
+  return GetNameFromMmap(env, mmap.get());
 }
