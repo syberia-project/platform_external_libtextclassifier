@@ -45,6 +45,16 @@ TEST(StripUnpairedBracketsTest, StripUnpairedBrackets) {
             std::make_pair(12, 12));
   EXPECT_EQ(StripUnpairedBrackets("call me at ( today", {11, 12}, unilib),
             std::make_pair(12, 12));
+
+  // Handles invalid spans gracefully.
+  EXPECT_EQ(StripUnpairedBrackets("call me at  today", {11, 11}, unilib),
+            std::make_pair(11, 11));
+  EXPECT_EQ(StripUnpairedBrackets("hello world", {0, 0}, unilib),
+            std::make_pair(0, 0));
+  EXPECT_EQ(StripUnpairedBrackets("hello world", {11, 11}, unilib),
+            std::make_pair(11, 11));
+  EXPECT_EQ(StripUnpairedBrackets("hello world", {-1, -1}, unilib),
+            std::make_pair(-1, -1));
 }
 
 }  // namespace

@@ -97,8 +97,20 @@ JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLanguage)
 JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLocales)
 (JNIEnv* env, jobject clazz, jint fd);
 
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLocalesFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size);
+
 JNI_METHOD(jint, TC_CLASS_NAME, nativeGetVersion)
 (JNIEnv* env, jobject clazz, jint fd);
+
+JNI_METHOD(jint, TC_CLASS_NAME, nativeGetVersionFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size);
+
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetName)
+(JNIEnv* env, jobject clazz, jint fd);
+
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetNameFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size);
 
 #ifdef __cplusplus
 }
