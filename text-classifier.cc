@@ -284,9 +284,8 @@ CodepointSpan TextClassifier::SuggestSelection(
     TC_LOG(ERROR) << "Not initialized";
     return click_indices;
   }
-
-  const UnicodeText context_unicode =
-      UTF8ToUnicodeText(context, /*do_copy=*/false);
+  const UnicodeText context_unicode = UTF8ToUnicodeText(context,
+                                                        /*do_copy=*/false);
   const int context_codepoint_size = context_unicode.size_codepoints();
 
   if (click_indices.first < 0 || click_indices.second < 0 ||

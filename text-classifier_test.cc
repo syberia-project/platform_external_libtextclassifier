@@ -708,5 +708,37 @@ TEST(TextClassifierTest, ResolveConflictsFiveSpans) {
   EXPECT_THAT(chosen, ElementsAreArray({0, 2, 4}));
 }
 
+#ifdef LIBTEXTCLASSIFIER_UNILIB_ICU
+TEST_P(TextClassifierTest, LongInput) {
+  CREATE_UNILIB_FOR_TESTING;
+  std::unique_ptr<TextClassifier> classifier =
+      TextClassifier::FromPath(GetModelPath() + GetParam(), &unilib);
+  ASSERT_TRUE(classifier);
+
+  for (const auto& type_value_pair :
+       std::vector<std::pair<std::string, std::string>>{
+           {"address", "350 Third Street, Cambridge"},
+           {"phone", "123 456-7890"},
+           {"url", "www.google.com"},
+           {"email", "someone@gmail.com"},
+           {"flight", "LX 38"},
+           {"date", "September 1, 2018"}}) {
+    const std::string input_100k = std::string(50000, ' ') +
+                                   type_value_pair.second +
+                                   std::string(50000, ' ');
+    const int value_length = type_value_pair.second.size();
+
+    EXPECT_THAT(classifier->Annotate(input_100k),
+                ElementsAreArray({IsAnnotatedSpan(50000, 50000 + value_length,
+                                                  type_value_pair.first)}));
+    EXPECT_EQ(classifier->SuggestSelection(input_100k, {50000, 50001}),
+              std::make_pair(50000, 50000 + value_length));
+    EXPECT_EQ(type_value_pair.first,
+              FirstResult(classifier->ClassifyText(
+                  input_100k, {50000, 50000 + value_length})));
+  }
+}
+#endif  // LIBTEXTCLASSIFIER_UNILIB_ICU
+
 }  // namespace
 }  // namespace libtextclassifier2
